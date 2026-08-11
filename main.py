@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, Response
+from fastapi import FastAPI, Depends, Response, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import date
@@ -6,63 +6,90 @@ from contextlib import asynccontextmanager
 import random
 import csv
 import io
+import logging
 
 from database import SessionLocal, init_db, WeeklyChart, Track, Artist, PlatformMetric
 from collectors import MultiPlatformCollector
 from analytics import KYChartAnalyticsEngine
 
+# Настройка логирования для отслеживания фоновых задач
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 def run_full_analysis_pipeline(db: Session):
-    collector = MultiPlatformCollector()
-    
-    raw_data = {
-        "apple_music": collector.fetch_apple_music(),
-        "spotify": collector.fetch_spotify_kg(),
-        "youtube": collector.fetch_youtube_music_kg(),
-        "shazam": collector.fetch_shazam_kg()
-    }
+    """Выполняет полный цикл сборки данных, расчета индекса и перезаписи базы."""
+    logger.info("Запуск фонового пайплайна анализа данных...")
+    try:
+        collector = MultiPlatformCollector()
+        
+        raw_data = {
+            "apple_music": collector.fetch_apple_music(),
+            "spotify": collector.fetch_spotify_kg(),
+            "youtube": collector.fetch_youtube_music_kg(),
+            "shazam": collector.fetch_shazam_kg()
+        }
 
-    processed = KYChartAnalyticsEngine.process_cross_platform_data(raw_data)
+        processed = KYChartAnalyticsEngine.process_cross_platform_data(raw_data)
 
-    db.query(WeeklyChart).delete()
-    db.query(PlatformMetric).delete()
-    db.query(Track).delete()
+        if not processed:
+            logger.warning("Пайплайн завершился: получен пустой список треков.")
+            return 0
 
-    for item in processed:
-        artist = db.query(Artist).filter(Artist.name == item["artist"]).first()
-        if not artist:
-            artist = Artist(name=item["artist"])
-            db.add(artist)
-            db.commit()
-
-        track = Track(
-            title=item["title"],
-            artist_id=artist.id,
-            cover_url=item["cover_url"]
-        )
-        db.add(track)
+        # Очистка предыдущих записей
+        db.query(WeeklyChart).delete()
+        db.query(PlatformMetric).delete()
+        db.query(Track).delete()
         db.commit()
 
-        last_pos = item["final_rank"] + random.choice([-3, -1, 0, 1, 4])
-        if last_pos < 1: 
-            last_pos = 1
+        for item in processed:
+            artist = db.query(Artist).filter(Artist.name == item["artist"]).first()
+            if not artist:
+                artist = Artist(name=item["artist"])
+                db.add(artist)
+                db.commit()
 
-        chart_entry = WeeklyChart(
-            track_id=track.id,
-            chart_date=date.today(),
-            position=item["final_rank"],
-            last_week_position=last_pos,
-            peak_position=min(item["final_rank"], last_pos),
-            weeks_on_chart=random.randint(2, 34),
-            ky_score=item["ky_score"],
-            apple_score=item["platform_breakdown"]["apple_music"],
-            spotify_score=item["platform_breakdown"]["spotify"],
-            youtube_score=item["platform_breakdown"]["youtube"],
-            shazam_score=item["platform_breakdown"]["shazam"]
-        )
-        db.add(chart_entry)
+            track = Track(
+                title=item["title"],
+                artist_id=artist.id,
+                cover_url=item["cover_url"]
+            )
+            db.add(track)
+            db.commit()
 
-    db.commit()
-    return len(processed)
+            last_pos = item["final_rank"] + random.choice([-3, -1, 0, 1, 4])
+            if last_pos < 1: 
+                last_pos = 1
+
+            chart_entry = WeeklyChart(
+                track_id=track.id,
+                chart_date=date.today(),
+                position=item["final_rank"],
+                last_week_position=last_pos,
+                peak_position=min(item["final_rank"], last_pos),
+                weeks_on_chart=random.randint(2, 34),
+                ky_score=item["ky_score"],
+                apple_score=item["platform_breakdown"]["apple_music"],
+                spotify_score=item["platform_breakdown"]["spotify"],
+                youtube_score=item["platform_breakdown"]["youtube"],
+                shazam_score=item["platform_breakdown"]["shazam"]
+            )
+            db.add(chart_entry)
+
+        db.commit()
+        logger.info(f"Пайплайн успешно завершен. Обработано треков: {len(processed)}")
+        return len(processed)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Ошибка при выполнении пайплайна: {e}")
+        raise e
+
+def run_pipeline_task():
+    """Вспомогательная функция для безопасного закрытия сессии базы в фоне."""
+    db = SessionLocal()
+    try:
+        run_full_analysis_pipeline(db)
+    finally:
+        db.close()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -91,7 +118,7 @@ def get_db():
     finally:
         db.close()
 
-# Эндпоинт для корневого URL, предотвращающий 404 и отключение Render
+# Эндпоинт корневого URL для предотвращения 404/отключений на Render
 @app.get("/")
 def read_root():
     return {
@@ -168,6 +195,13 @@ def export_chart_csv(db: Session = Depends(get_db)):
     )
 
 @app.post("/api/v1/admin/run-pipeline")
-def trigger_pipeline(db: Session = Depends(get_db)):
-    count = run_full_analysis_pipeline(db)
-    return {"status": "success", "message": f"Проведен кросс-платформенный анализ {count} треков!"}
+def trigger_pipeline(background_tasks: BackgroundTasks):
+    """
+    Запускает перерасчет данных в фоновом режиме,
+    чтобы избежать таймаутов на Render/Vercel.
+    """
+    background_tasks.add_task(run_pipeline_task)
+    return {
+        "status": "success",
+        "message": "Процесс перерасчета чарта запущен в фоне. База обновится в течение 10–20 секунд!"
+    }
