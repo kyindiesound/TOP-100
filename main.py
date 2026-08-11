@@ -1,8 +1,10 @@
 import time
 import logging
+import os
 from typing import List
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from sqlalchemy import create_engine, Column, Integer, String, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -60,6 +62,14 @@ def invalidate_cache():
     _chart_cache["timestamp"] = 0
     _chart_cache["data"] = None
 
+@app.get("/")
+def read_root():
+    """Отдача index.html или статуса сервера."""
+    if os.path.exists("index.html"):
+        return FileResponse("index.html")
+    return {"status": "ok", "message": "KY TOP 100 API Service is Running"}
+
+@app.post("/api/v1/admin/run-pipeline")
 @app.post("/api/v1/chart/recalculate")
 def recalculate_chart(db: Session = Depends(get_db)):
     """Запуск оптимизированного конвейера расчета чарта."""
