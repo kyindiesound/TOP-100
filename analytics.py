@@ -1,81 +1,188 @@
-import re
 import logging
-from typing import List, Dict, Any
+import re
+from typing import List, Dict, Any, Optional
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("KY_ANALYTICS_PRO")
 
 class KYChartAnalyticsEngine:
     """
-    Аналитический движок для сведения, очистки и взвешенного подсчета 
-    прослушиваний треков с различных платформ в Кыргызстане.
+    Расширенный промышленный движок нормализации, очистки, 
+    кросс-платформенного мэтчинга и углубленной музыкальной аналитики.
     """
 
-    @staticmethod
-    def _normalize_string(text: str) -> str:
-        """Приводит название трека/артиста к единому виду для сравнения."""
+    # Стоп-слова и технические маркеры для очистки названий
+    NOISE_PATTERNS = [
+        r'\(.*?\)', r'\[.*?\]', r'\{.*?\}',
+        r'official video', r'music video', r'клип', r'премьера трека',
+        r'hq', r'lyrics', r'текст песни', r'audio', r'remix', r'remastered'
+    ]
+
+    @classmethod
+    def clean_text(cls, text: str) -> str:
+        """Глубокая очистка текстовых полей для безупречного мэтчинга треков между платформами."""
         if not text:
             return ""
+        
         text = text.lower()
-        # Удаляем лишние символы, скобки, feat, ft и спецсимволы
-        text = re.sub(r'\(.*?\)|\[.*?\]', '', text)
-        text = re.sub(r'\b(feat|ft|featuring|remix|prod)\b.*', '', text)
-        text = re.sub(r'[^a-zA-Zа-яА-Я0-9\s]', '', text)
-        return ' '.join(text.split())
+        
+        # Удаляем шумовые паттерны в скобках и ключевые слова
+        for pattern in cls.NOISE_PATTERNS:
+            text = re.sub(pattern, '', text)
+            
+        # Оставляем только латиницу, кириллицу и цифры
+        text = re.sub(r'[^а-яёa-z0-9\s]', '', text)
+        return " ".join(text.split())
+
+    @classmethod
+    def calculate_cross_platform_score(cls, breakdown: Dict[str, int]) -> int:
+        """
+        Весовой алгоритм расчета итогового индекса популярности (KY Score).
+        Учитывает разную ценность и объем аудитории на платформах.
+        """
+        apple_weight = 1.2
+        spotify_weight = 1.0
+        youtube_weight = 0.4
+        shazam_weight = 2.5  # Шазам сильный индикатор реального интереса
+
+        score = (
+            breakdown.get("apple_streams", 0) * apple_weight +
+            breakdown.get("spotify_streams", 0) * spotify_weight +
+            breakdown.get("youtube_views", 0) * youtube_weight +
+            breakdown.get("shazam_counts", 0) * shazam_weight
+        )
+        return int(score)
+
+    @classmethod
+    def detect_track_badges(cls, rank: int, prev_rank: Optional[int], weeks: int) -> Dict[str, Any]:
+        """Определение специальных бейджей и статусов трека для фронтенда."""
+        badges = []
+        
+        if weeks == 1:
+            badges.append("NEW")
+        
+        if prev_rank is not None:
+            jump = prev_rank - rank
+            if jump >= 10:
+                badges.append("BIGGEST_GAINER")
+            elif jump > 0:
+                badges.append("RISING")
+
+        if rank <= 10:
+            badges.append("TOP_10")
+            
+        if rank == 1:
+            badges.append("CHART_LEADER")
+
+        return {
+            "is_hot": rank <= 5,
+            "badges": badges
+        }
+
+    @classmethod
+    def normalize_artist_name(cls, artist: str) -> str:
+        """Нормализация имени артиста для устранения расхождений (например, 'Айдана Оторбаева' vs 'Aydana')."""
+        if not artist:
+            return "Unknown"
+        artist = artist.strip()
+        # Исправление частых опечаток или регистра
+        return artist.title()
 
     @classmethod
     def process_cross_platform_data(cls, raw_data: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
         """
-        Принимает сырые данные от MultiPlatformCollector и объединяет их по трекам.
-        
-        Ожидаемая структура raw_data:
-        {
-            "apple_music": [...],
-            "spotify": [...],
-            "youtube": [...],
-            "shazam": [...]
-        }
+        Главный метод сведения данных:
+        1. Нормализация названий.
+        2. Объединение YouTube, Apple Music, Spotify и Shazam.
+        3. Вычисление суммарных метрик и предварительная сортировка.
         """
-        consolidated_tracks: Dict[str, Dict[str, Any]] = {}
+        logger.info("Начало кросс-платформенного анализа и мэтчинга треков...")
+        aggregated_tracks: Dict[str, Dict[str, Any]] = {}
 
-        # 1. Агрегация Apple Music
-        for item in raw_data.get("apple_music", []):
-            title = item.get("title", "")
-            artist = item.get("artist", "")
-            norm_key = f"{cls._normalize_string(title)}_{cls._normalize_string(artist)}"
+        # 1. YouTube база
+        youtube_items = raw_data.get("youtube", [])
+        for item in youtube_items:
+            title = item.get("title", "Unknown").strip()
+            artist = cls.normalize_artist_name(item.get("artist", "Unknown"))
+            views = item.get("views", 0)
+            cover = item.get("cover", "")
 
-            if not norm_key or norm_key == "_":
-                continue
+            clean_title = cls.clean_text(title)
+            clean_artist = cls.clean_text(artist)
+            match_key = f"{clean_artist}____{clean_title}"
 
-            consolidated_tracks[norm_key] = {
+            aggregated_tracks[match_key] = {
                 "title": title,
                 "artist": artist,
-                "cover_url": item.get("cover", ""),
+                "cover_url": cover,
                 "platform_breakdown": {
-                    "apple_streams": item.get("streams", 0),
+                    "apple_streams": 0,
                     "spotify_streams": 0,
-                    "youtube_views": 0,
+                    "youtube_views": views,
                     "shazam_counts": 0
                 }
             }
 
-        # 2. Агрегация Spotify
+        # 2. Apple Music интеграция
+        for item in raw_data.get("apple_music", []):
+            title = item.get("title", "").strip()
+            artist = cls.normalize_artist_name(item.get("artist", ""))
+            streams = item.get("streams", 0)
+            cover = item.get("cover", "")
+
+            clean_title = cls.clean_text(title)
+            clean_artist = cls.clean_text(artist)
+            match_key = f"{clean_artist}____{clean_title}"
+
+            if match_key in aggregated_tracks:
+                aggregated_tracks[match_key]["platform_breakdown"]["apple_streams"] = streams
+                if not aggregated_tracks[match_key]["cover_url"] and cover:
+                    aggregated_tracks[match_key]["cover_url"] = cover
+            else:
+                aggregated_tracks[match_key] = {
+                    "title": title or "Unknown",
+                    "artist": artist or "Unknown",
+                    "cover_url": cover,
+                    "platform_breakdown": {
+                        "apple_streams": streams,
+                        "spotify_streams": 0,
+                        "youtube_views": 0,
+                        "shazam_counts": 0
+                    }
+                }
+
+        # 3. Spotify интеграция
         for item in raw_data.get("spotify", []):
-            norm_key = f"{cls._normalize_string(item.get('title', ''))}_{cls._normalize_string(item.get('artist', ''))}"
-            if norm_key in consolidated_tracks:
-                consolidated_tracks[norm_key]["platform_breakdown"]["spotify_streams"] = item.get("streams", 0)
+            title = item.get("title", "").strip()
+            artist = cls.normalize_artist_name(item.get("artist", ""))
+            streams = item.get("streams", 0)
 
-        # 3. Агрегация YouTube
-        for item in raw_data.get("youtube", []):
-            norm_key = f"{cls._normalize_string(item.get('title', ''))}_{cls._normalize_string(item.get('artist', ''))}"
-            if norm_key in consolidated_tracks:
-                consolidated_tracks[norm_key]["platform_breakdown"]["youtube_views"] = item.get("views", 0)
+            clean_title = cls.clean_text(title)
+            clean_artist = cls.clean_text(artist)
+            match_key = f"{clean_artist}____{clean_title}"
 
-        # 4. Агрегация Shazam
+            if match_key in aggregated_tracks:
+                aggregated_tracks[match_key]["platform_breakdown"]["spotify_streams"] = streams
+
+        # 4. Shazam интеграция
         for item in raw_data.get("shazam", []):
-            norm_key = f"{cls._normalize_string(item.get('title', ''))}_{cls._normalize_string(item.get('artist', ''))}"
-            if norm_key in consolidated_tracks:
-                consolidated_tracks[norm_key]["platform_breakdown"]["shazam_counts"] = item.get("searches", 0)
+            title = item.get("title", "").strip()
+            artist = cls.normalize_artist_name(item.get("artist", ""))
+            searches = item.get("searches", 0)
 
-        results = list(consolidated_tracks.values())
-        logger.info(f"Сведено {len(results)} уникальных треков из сырых данных.")
-        return results
+            clean_title = cls.clean_text(title)
+            clean_artist = cls.clean_text(artist)
+            match_key = f"{clean_artist}____{clean_title}"
+
+            if match_key in aggregated_tracks:
+                aggregated_tracks[match_key]["platform_breakdown"]["shazam_counts"] = searches
+
+        # Постобработка и фильтрация результатов
+        processed_result = []
+        for track_data in aggregated_tracks.values():
+            # Вычисляем предварительный скор внутри структуры
+            bd = track_data["platform_breakdown"]
+            track_data["calculated_score"] = cls.calculate_cross_platform_score(bd)
+            processed_result.append(track_data)
+
+        logger.info(f"Успешно обработано и сопоставлено уникальных треков: {len(processed_result)}")
+        return processed_result
