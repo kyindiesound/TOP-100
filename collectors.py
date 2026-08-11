@@ -75,7 +75,7 @@ class CollectorMemoryCache:
 
 
 # ==============================================================================
-# 4. MULTI-PLATFORM ORCHESTRATED COLLECTOR (FULL VERSION)
+# 4. MULTI-PLATFORM ORCHESTRATED COLLECTOR (STRICT REAL DATA VERSION)
 # ==============================================================================
 class MultiPlatformCollector:
     KWORB_YOUTUBE_URL = "https://kworb.net/youtube/topvideos_kg.html"
@@ -231,40 +231,6 @@ class MultiPlatformCollector:
 
         return master_entities
 
-    def generate_enterprise_fallback_pool(self) -> List[MasterTrackEntity]:
-        fallback_data = [
-            ("Мирбек Атабеков", "Эсимде", 4500000, 1600000),
-            ("Ulukmanapo", "Расстояние", 3900000, 1350000),
-            ("Jax 02.14", "Таптым", 3200000, 1150000),
-            ("Bayastan", "Kelechek", 2800000, 990000),
-            ("Tamga", "Айдагы кыз", 2500000, 860000),
-            ("Mirbek Atabekov", "Жүрөктө", 2200000, 770000),
-            ("Zere", "Kыз", 1950000, 680000),
-            ("Bakr", "Сен мага керексиң", 1750000, 610000),
-            ("Koom", "Жаңы муун", 1550000, 530000),
-            ("Noname", "Сагындым", 1400000, 480000)
-        ]
-        pool: List[MasterTrackEntity] = []
-        for idx, (art, tit, vw, st) in enumerate(fallback_data, start=1):
-            pool.append(MasterTrackEntity(
-                artist=art, title=tit, cover_url="",
-                youtube_views=vw - (idx * 2500), apple_streams=st - (idx * 900),
-                spotify_streams=int((st - (idx * 900)) * 0.88),
-                shazam_count=int((st - (idx * 900)) * 0.12),
-                confidence_score=0.70, is_fallback_data=True
-            ))
-
-        for i in range(11, 101):
-            pool.append(MasterTrackEntity(
-                artist=f"KY Artist Independent #{i}", title=f"Chart Hit Song #{i}", cover_url="",
-                youtube_views=max(1100000 - (i * 8500), 30000),
-                apple_streams=max(450000 - (i * 3200), 12000),
-                spotify_streams=max(380000 - (i * 2800), 10000),
-                shazam_count=max(45000 - (i * 300), 1000),
-                confidence_score=0.60, is_fallback_data=True
-            ))
-        return pool
-
     async def fetch_all_platform_data(self) -> Dict[str, List[Dict[str, Any]]]:
         start_ts = time.time()
         raw_records = []
@@ -279,20 +245,9 @@ class MultiPlatformCollector:
         master_tracks: List[MasterTrackEntity] = []
         if raw_records:
             try:
-                limited_raw = raw_records[:100]
-                master_tracks = await self.enrich_tracks_async(limited_raw)
+                master_tracks = await self.enrich_tracks_async(raw_records)
             except Exception as ex:
                 logger.error(f"Ошибка асинхронного пайплайна: {ex}")
-
-        if len(master_tracks) < 100:
-            fallback_pool = self.generate_enterprise_fallback_pool()
-            for fb in fallback_pool:
-                if len(master_tracks) >= 100:
-                    break
-                if not any(t.title.lower() == fb.title.lower() for t in master_tracks):
-                    master_tracks.append(fb)
-
-        master_tracks = master_tracks[:100]
 
         youtube_output, apple_output, spotify_output, shazam_output = [], [], [], []
         for track in master_tracks:
@@ -302,7 +257,7 @@ class MultiPlatformCollector:
             shazam_output.append({"title": track.title, "artist": track.artist, "searches": track.shazam_count})
 
         duration = round(time.time() - start_ts, 2)
-        logger.info(f"Оркестрация завершена за {duration} сек.")
+        logger.info(f"Оркестрация завершена за {duration} сек. Обработано реальных треков: {len(master_tracks)}")
 
         return {
             "youtube": youtube_output,
