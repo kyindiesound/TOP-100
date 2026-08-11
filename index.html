@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOP-100 KG — Minimal Charts</title>
+    <title>KY INDIE SOUND — Charts</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -15,12 +15,12 @@
                 extend: {
                     fontFamily: {
                         sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
                     },
                     colors: {
-                        bgDark: '#0a0a0c',
-                        cardBg: '#121216',
-                        borderSubtle: '#1f1f26',
-                        accent: '#ffffff',
+                        canvas: '#08080a',
+                        surface: '#121216',
+                        line: '#1c1c24',
                     }
                 }
             }
@@ -28,61 +28,62 @@
     </script>
     <style>
         body {
-            background-color: #0a0a0c;
-            color: #ededed;
+            background-color: #08080a;
+            color: #f4f4f5;
         }
-        .minimal-border {
-            border-bottom: 1px solid #1f1f26;
+        .row-hover:hover {
+            background-color: rgba(255, 255, 255, 0.02);
         }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0a0a0c; }
-        ::-webkit-scrollbar-thumb { background: #272730; border-radius: 3px; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #08080a; }
+        ::-webkit-scrollbar-thumb { background: #272732; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-white selection:text-black">
 
-    <!-- Header -->
-    <header class="sticky top-0 z-50 bg-[#0a0a0c]/80 backdrop-blur-md minimal-border">
-        <div class="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
+    <!-- Minimal Header -->
+    <header class="w-full border-b border-[#1c1c24] bg-[#08080a]/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <span class="font-bold tracking-wider text-lg text-white">TOP-100 KG</span>
+                <span class="font-sans font-semibold tracking-wider text-xs uppercase text-zinc-400">KY INDIE SOUND</span>
+                <span class="text-zinc-700">/</span>
+                <span class="font-medium text-sm text-white">Charts</span>
             </div>
-            <button onclick="app.fetchData()" class="text-xs uppercase tracking-widest text-zinc-400 hover:text-white transition-colors">
-                Обновить
+            <button onclick="app.fetchData()" class="text-xs font-mono text-zinc-500 hover:text-white transition-colors">
+                [ sync ]
             </button>
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="flex-grow max-w-5xl mx-auto px-6 py-10 w-full">
+    <!-- Main Section -->
+    <main class="flex-grow max-w-4xl mx-auto px-6 py-12 w-full">
         
-        <!-- Platform Switcher (Minimal) -->
-        <div class="flex items-center gap-6 mb-10 overflow-x-auto pb-2 text-sm font-medium" id="platform-tabs">
-            <button onclick="app.switchPlatform('youtube')" data-target="youtube" class="text-white border-b-2 border-white pb-1 transition-all">YouTube KG</button>
-            <button onclick="app.switchPlatform('apple_music')" data-target="apple_music" class="text-zinc-500 hover:text-zinc-300 pb-1 transition-all">Apple Music</button>
-            <button onclick="app.switchPlatform('spotify')" data-target="spotify" class="text-zinc-500 hover:text-zinc-300 pb-1 transition-all">Spotify</button>
-            <button onclick="app.switchPlatform('shazam')" data-target="shazam" class="text-zinc-500 hover:text-zinc-300 pb-1 transition-all">Shazam</button>
+        <!-- Platform Switcher (Minimal Tabs) -->
+        <div class="flex items-center space-x-8 mb-10 border-b border-[#1c1c24] pb-4 text-xs uppercase tracking-widest font-medium overflow-x-auto" id="platform-tabs">
+            <button onclick="app.switchPlatform('youtube')" data-target="youtube" class="text-white pb-4 -mb-4 border-b border-white transition-colors whitespace-nowrap">YouTube KG</button>
+            <button onclick="app.switchPlatform('apple_music')" data-target="apple_music" class="text-zinc-600 hover:text-zinc-300 transition-colors whitespace-nowrap">Apple Music</button>
+            <button onclick="app.switchPlatform('spotify')" data-target="spotify" class="text-zinc-600 hover:text-zinc-300 transition-colors whitespace-nowrap">Spotify</button>
+            <button onclick="app.switchPlatform('shazam')" data-target="shazam" class="text-zinc-600 hover:text-zinc-300 transition-colors whitespace-nowrap">Shazam</button>
         </div>
 
-        <!-- Chart List Container -->
-        <div class="bg-cardBg rounded-2xl border border-borderSubtle overflow-hidden">
-            <div class="px-6 py-4 minimal-border flex items-center justify-between text-[11px] uppercase tracking-widest text-zinc-500">
-                <span>Трек</span>
-                <span id="metric-label">Показатель</span>
+        <!-- List Container -->
+        <div>
+            <div class="flex items-center justify-between pb-4 text-[10px] font-mono uppercase tracking-widest text-zinc-600 border-b border-[#1c1c24] px-3">
+                <span>Track & Artist</span>
+                <span id="metric-label">Streams</span>
             </div>
             
-            <div id="loader" class="py-24 flex flex-col items-center justify-center space-y-3">
-                <div class="w-6 h-6 rounded-full border-2 border-zinc-600 border-t-white animate-spin"></div>
-                <p class="text-xs text-zinc-500 tracking-wide">Загрузка...</p>
+            <div id="loader" class="py-28 text-center font-mono text-xs text-zinc-600">
+                Loading database...
             </div>
 
-            <div id="tracks-list" class="divide-y divide-[#1f1f26] hidden"></div>
+            <div id="tracks-list" class="divide-y divide-[#1c1c24] hidden"></div>
         </div>
     </main>
 
     <!-- Script -->
     <script>
-        // ВНИМАНИЕ: Замените эту ссылку на точный URL вашего бэкенда на Render без слэша на конце!
+        // Вставьте ваш реальный URL бэкенда на Render без слэша на конце
         const API_BASE_URL = "https://your-backend-service.onrender.com";
 
         class MusicChartApp {
@@ -96,24 +97,19 @@
                 const loader = document.getElementById("loader");
                 const listEl = document.getElementById("tracks-list");
                 
-                loader.style.display = "flex";
+                loader.style.display = "block";
                 listEl.classList.add("hidden");
 
                 try {
                     const res = await fetch(`${API_BASE_URL}/api/v1/charts`);
-                    if (!res.ok) throw new Error("Ошибка связи с сервером");
+                    if (!res.ok) throw new Error("Server error");
                     
                     const json = await res.json();
                     this.data = json.data || json;
                     this.render();
                 } catch (err) {
                     console.error(err);
-                    loader.innerHTML = `
-                        <div class="text-center py-10 px-4">
-                            <p class="text-zinc-400 text-xs font-medium mb-1">Не удалось загрузить данные с бэкенда.</p>
-                            <p class="text-[11px] text-zinc-600">Проверьте ссылку API_BASE_URL в коде.</p>
-                        </div>
-                    `;
+                    loader.innerHTML = `<span class="text-zinc-500">Connection error. Check API_BASE_URL.</span>`;
                 }
             }
 
@@ -122,9 +118,9 @@
                 
                 document.querySelectorAll('#platform-tabs button').forEach(btn => {
                     if (btn.getAttribute('data-target') === platform) {
-                        btn.className = "text-white border-b-2 border-white pb-1 transition-all";
+                        btn.className = "text-white pb-4 -mb-4 border-b border-white transition-colors whitespace-nowrap";
                     } else {
-                        btn.className = "text-zinc-500 hover:text-zinc-300 pb-1 transition-all";
+                        btn.className = "text-zinc-600 hover:text-zinc-300 transition-colors whitespace-nowrap";
                     }
                 });
 
@@ -140,13 +136,13 @@
 
                 let tracks = this.data[this.currentPlatform] || [];
 
-                if (this.currentPlatform === 'youtube') metricLabel.textContent = "Просмотры";
-                else if (this.currentPlatform === 'apple_music' || this.currentPlatform === 'spotify') metricLabel.textContent = "Стримы";
-                else if (this.currentPlatform === 'shazam') metricLabel.textContent = "Поиски";
+                if (this.currentPlatform === 'youtube') metricLabel.textContent = "Views";
+                else if (this.currentPlatform === 'apple_music' || this.currentPlatform === 'spotify') metricLabel.textContent = "Streams";
+                else if (this.currentPlatform === 'shazam') metricLabel.textContent = "Searches";
 
                 let html = "";
                 if (tracks.length === 0) {
-                    html = `<div class="py-16 text-center text-zinc-600 text-xs">Нет данных</div>`;
+                    html = `<div class="py-16 text-center font-mono text-xs text-zinc-600">No tracks available</div>`;
                 } else {
                     tracks.forEach((track, index) => {
                         const rank = index + 1;
@@ -155,19 +151,19 @@
                         const cover = track.cover || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80";
 
                         html += `
-                            <div class="px-6 py-3.5 flex items-center justify-between hover:bg-[#18181f] transition-colors">
+                            <div class="px-3 py-3.5 flex items-center justify-between row-hover transition-colors group">
                                 <div class="flex items-center space-x-4">
-                                    <span class="text-xs font-mono text-zinc-500 w-6 text-right">${rank}</span>
-                                    <div class="w-10 h-10 rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0">
-                                        <img src="${cover}" alt="${track.title}" class="w-full h-full object-cover">
+                                    <span class="font-mono text-xs text-zinc-600 w-6">${String(rank).padStart(2, '0')}</span>
+                                    <div class="w-9 h-9 rounded bg-[#16161c] overflow-hidden flex-shrink-0">
+                                        <img src="${cover}" alt="${track.title}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity">
                                     </div>
                                     <div>
-                                        <h4 class="text-sm font-medium text-white">${track.title}</h4>
-                                        <p class="text-xs text-zinc-400">${track.artist}</p>
+                                        <h4 class="text-xs font-medium text-white tracking-wide">${track.title}</h4>
+                                        <p class="text-[11px] text-zinc-500">${track.artist}</p>
                                     </div>
                                 </div>
                                 <div class="text-right">
-                                    <span class="text-xs font-mono font-medium text-zinc-300">${formattedVal}</span>
+                                    <span class="font-mono text-xs text-zinc-400">${formattedVal}</span>
                                 </div>
                             </div>
                         `;
