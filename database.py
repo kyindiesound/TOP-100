@@ -1,66 +1,99 @@
-﻿import os
-from sqlalchemy import create_engine, Column, Integer, String, Date, ForeignKey, Numeric, Float
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+import logging
+from contextlib import contextmanager
+from typing import Generator
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./ky_top100.db")
+from sqlalchemy import create_engine, event
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.engine import Engine
 
-engine = create_engine(
-    DATABASE_URL, 
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+from config import settings
+
+# Настройка системного логгера для базы данных
+logger = logging.getLogger("KY_DATABASE_CORE")
+
+# Определяем параметры подключения в зависимости от типа БД (SQLite / PostgreSQL)
+engine_args = {}
+if "sqlite" in settings.DATABASE_URL:
+    engine_args["connect_args"] = {"check_same_thread": False}
+    # Включаем внешние ключи для SQLite
+    @event.listens_for(Engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+else:
+    # Настройки пула соединений для production-баз данных (PostgreSQL / MySQL)
+    engine_args["pool_size"] = 10
+    engine_args["max_overflow"] = 20
+    engine_args["pool_recycle"] = 3600
+
+# Инициализация главного движка SQLAlchemy
+engine = create_engine(settings.DATABASE_URL, **engine_args)
+
+# Фабрика сессий
+SessionLocal = sessionmaker(
+    autocommit=False, 
+    autoflush=False, 
+    bind=engine,
+    expire_on_commit=False
 )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Базовый класс для ORM моделей
 Base = declarative_base()
 
-class Artist(Base):
-    __tablename__ = "artists"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False, unique=True)
-    avatar_url = Column(String(512), nullable=True)
-    tracks = relationship("Track", back_populates="artist")
 
-class Track(Base):
-    __tablename__ = "tracks"
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String(255), nullable=False)
-    artist_id = Column(Integer, ForeignKey("artists.id"))
-    cover_url = Column(String(512), nullable=True)
-    isrc = Column(String(32), nullable=True, index=True)  # Код трека для дедупликации
-    
-    artist = relationship("Artist", back_populates="tracks")
-    raw_metrics = relationship("PlatformMetric", back_populates="track")
-    charts = relationship("WeeklyChart", back_populates="track")
+def get_db() -> Generator[Session, None, None]:
+    """
+    Генератор сессий базы данных для FastAPI Dependency Injection (Depends).
+    Автоматически закрывает соединение и откатывает транзакции при исключениях.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    except Exception as e:
+        logger.error(f"Критическая ошибка в транзакции БД: {e}", exc_info=True)
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
-class PlatformMetric(Base):
-    """Сырые данные с разбивкой по площадкам"""
-    __tablename__ = "platform_metrics"
-    id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"))
-    platform = Column(String(50), nullable=False)  # apple_music, spotify, youtube, shazam
-    rank = Column(Integer, nullable=True)
-    play_count = Column(Integer, default=0)
-    shazams_count = Column(Integer, default=0)
-    
-    track = relationship("Track", back_populates="raw_metrics")
 
-class WeeklyChart(Base):
-    """Финальный скомпонованный чарт"""
-    __tablename__ = "weekly_charts"
-    id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"))
-    chart_date = Column(Date, index=True)
-    position = Column(Integer, nullable=False)
-    last_week_position = Column(Integer, nullable=True)
-    peak_position = Column(Integer, nullable=False)
-    weeks_on_chart = Column(Integer, default=1)
-    
-    # Финальные весовые баллы
-    ky_score = Column(Numeric(12, 2), nullable=False)
-    apple_score = Column(Float, default=0.0)
-    spotify_score = Column(Float, default=0.0)
-    youtube_score = Column(Float, default=0.0)
-    shazam_score = Column(Float, default=0.0)
+@contextmanager
+def get_db_context() -> Generator[Session, None, None]:
+    """
+    Контекстный менеджер для работы с БД вне эндпоинтов FastAPI 
+    (например, в фоновых задачах, скриптах сбора или CLI).
+    """
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception as e:
+        logger.error(f"Ошибка в контекстном менеджере БД: {e}", exc_info=True)
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
-    track = relationship("Track", back_populates="charts")
 
-def init_db():
-    Base.metadata.create_all(bind=engine)
+def init_db() -> None:
+    """Полная инициализация схемы базы данных и создание таблиц."""
+    try:
+        logger.info(f"Инициализация подключения к БД по адресу: {settings.DATABASE_URL.split('://')[0]}://***")
+        Base.metadata.create_all(bind=engine)
+        logger.info("Таблицы базы данных успешно созданы / проверены.")
+    except Exception as e:
+        logger.error(f"Не удалось инициализировать структуру базы данных: {e}", exc_info=True)
+        raise RuntimeError(f"Database initialization failed: {e}")
+
+
+def check_db_health() -> bool:
+    """Проверка доступности базы данных для healthcheck-эндпоинтов."""
+    try:
+        with engine.connect() as connection:
+            connection.exec_driver_sql("SELECT 1")
+        return True
+    except Exception as e:
+        logger.error(f"Healthcheck базы данных не пройден: {e}")
+        return False
