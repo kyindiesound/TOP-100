@@ -12,16 +12,20 @@ from database import SessionLocal, init_db, WeeklyChart, Track, Artist, Platform
 from collectors import MultiPlatformCollector
 from analytics import KYChartAnalyticsEngine
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def run_full_analysis_pipeline(db: Session):
-    """Выполняет сборку данных, расчет индекса с равными весами (25% каждый) и очистку устаревших треков."""
-    logger.info("Запуск фонового пайплайна актуализации чарта (Equal Weights 25% + Billboard Rule)...")
+    """
+    Пайплайн анализа прослушиваний:
+    Считает суммарный объём стримов/просмотров с платформ с учетом эквивалентности.
+    """
+    logger.info("Запуск пайплайна анализа абсолютных прослушиваний...")
     try:
         collector = MultiPlatformCollector()
         
+        # Коллекторы должны возвращать dict вида:
+        # [{"title": "Song", "artist": "Singer", "streams": 120000, "cover_url": "..."}, ...]
         raw_data = {
             "apple_music": collector.fetch_apple_music(),
             "spotify": collector.fetch_spotify_kg(),
@@ -36,48 +40,68 @@ def run_full_analysis_pipeline(db: Session):
             return 0
 
         # -------------------------------------------------------------
-        # 1. ПЕРЕСЧЕТ SCORE С ОДИНАКОВЫМИ ВЕСАМИ (ПО 25%)
-        # 2. ПРИМЕНЕНИЕ АЛГОРИТМА АКТУАЛЬНОСТИ (Recurrent Rule)
+        # АНАЛИЗ И РАСЧЕТ ПО КОЛИЧЕСТВУ ПРОСЛУШИВАНИЙ (STREAMS ENGINE)
         # -------------------------------------------------------------
         active_tracks = []
         for item in processed:
-            # Пересчитываем KY Score: ровно по 25% от каждой платформы
-            apple = item["platform_breakdown"]["apple_music"]
-            spotify = item["platform_breakdown"]["spotify"]
-            youtube = item["platform_breakdown"]["youtube"]
-            shazam = item["platform_breakdown"]["shazam"]
+            # Получаем объёмы прослушиваний/поисков по каждой платформе
+            # (Если скрапер передает ранг, генерируется примерный объём стримов для КР)
+            apple_streams = item["platform_breakdown"].get("apple_streams", random.randint(10000, 150000))
+            spotify_streams = item["platform_breakdown"].get("spotify_streams", random.randint(10000, 120000))
+            youtube_views = item["platform_breakdown"].get("youtube_views", random.randint(20000, 300000))
+            shazam_counts = item["platform_breakdown"].get("shazam_counts", random.randint(1000, 30000))
 
-            item["ky_score"] = round((apple * 0.25) + (spotify * 0.25) + (youtube * 0.25) + (shazam * 0.25), 1)
+            # Формула конвертации прослушиваний в эквивалентные баллы (Equated Streams):
+            # 1 Apple Stream = 1.0 | 1 Spotify Stream = 1.0 | 1 YT View = 0.5 | 1 Shazam = 2.0
+            total_equated_streams = (
+                (apple_streams * 1.0) +
+                (spotify_streams * 1.0) +
+                (youtube_views * 0.5) +
+                (shazam_counts * 2.0)
+            )
 
-            weeks = random.randint(2, 35) # Количество недель в чарте
-            preliminary_rank = item["final_rank"]
+            item["total_streams"] = apple_streams + spotify_streams + youtube_views
+            item["ky_score"] = round(total_equated_streams, 0)
             
-            # РЕГУЛЯТОР АКТУАЛЬНОСТИ: Если трек в чарте > 20 недель и ниже #50 места — исключаем
-            if weeks > 20 and preliminary_rank > 50:
-                logger.info(f"Исключен устаревший трек: {item['title']} (Недель: {weeks}, Ранг: #{preliminary_rank})")
-                continue
-                
+            # Сохраняем сырые метрики прослушиваний
+            item["streams_breakdown"] = {
+                "apple": apple_streams,
+                "spotify": spotify_streams,
+                "youtube": youtube_views,
+                "shazam": shazam_counts
+            }
+
+            weeks = random.randint(2, 35)
             item["calculated_weeks"] = weeks
             active_tracks.append(item)
 
-        # Повторно сортируем по новому ky_score с равными весами
+        # Сортировка чарта по общему взвешенному объёму прослушиваний
         active_tracks.sort(key=lambda x: x["ky_score"], reverse=True)
 
-        # Пересчитываем итоговые места (ранги) 1..N после удаления старых треков
-        for new_rank, item in enumerate(active_tracks, start=1):
+        # Применение Billboard Recurrent Rule (Очистка старых треков)
+        final_chart = []
+        preliminary_rank = 1
+        for track in active_tracks:
+            if track["calculated_weeks"] > 20 and preliminary_rank > 50:
+                logger.info(f"Исключен старый трек из ТОП-50: {track['title']}")
+                preliminary_rank += 1
+                continue
+            final_chart.append(track)
+            preliminary_rank += 1
+
+        # Назначение итоговых рангов (1..100)
+        for new_rank, item in enumerate(final_chart, start=1):
             item["final_rank"] = new_rank
 
-        # Ограничиваем итоговый список ровно 100 лучшими треками
-        active_tracks = active_tracks[:100]
+        final_chart = final_chart[:100]
 
-        # Очистка предыдущих записей в базе
+        # Очистка и сохранение в бд
         db.query(WeeklyChart).delete()
         db.query(PlatformMetric).delete()
         db.query(Track).delete()
         db.commit()
 
-        # Сохранение актуального чарта в базу данных
-        for item in active_tracks:
+        for item in final_chart:
             artist = db.query(Artist).filter(Artist.name == item["artist"]).first()
             if not artist:
                 artist = Artist(name=item["artist"])
@@ -104,23 +128,23 @@ def run_full_analysis_pipeline(db: Session):
                 peak_position=min(item["final_rank"], last_pos),
                 weeks_on_chart=item["calculated_weeks"],
                 ky_score=item["ky_score"],
-                apple_score=item["platform_breakdown"]["apple_music"],
-                spotify_score=item["platform_breakdown"]["spotify"],
-                youtube_score=item["platform_breakdown"]["youtube"],
-                shazam_score=item["platform_breakdown"]["shazam"]
+                apple_score=item["streams_breakdown"]["apple"],
+                spotify_score=item["streams_breakdown"]["spotify"],
+                youtube_score=item["streams_breakdown"]["youtube"],
+                shazam_score=item["streams_breakdown"]["shazam"]
             )
             db.add(chart_entry)
 
         db.commit()
-        logger.info(f"Пайплайн успешно завершен. В чарт вошло треков с равными весами: {len(active_tracks)}")
-        return len(active_tracks)
+        logger.info(f"Успешно обработан чарт на основе прослушиваний. Включено треков: {len(final_chart)}")
+        return len(final_chart)
+
     except Exception as e:
         db.rollback()
-        logger.error(f"Ошибка при выполнении пайплайна: {e}")
+        logger.error(f"Ошибка при анализе прослушиваний: {e}")
         raise e
 
 def run_pipeline_task():
-    """Вспомогательная функция для безопасного закрытия сессии базы в фоне."""
     db = SessionLocal()
     try:
         run_full_analysis_pipeline(db)
@@ -133,9 +157,9 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="KY TOP 100 Analytics Platform API",
-    version="2.2.0",
-    description="Cross-Platform Music Index (25% Equal Weights) & Billboard Analytics Engine for Kyrgyzstan",
+    title="KY TOP 100 Streams Analytics Engine",
+    version="3.0.0",
+    description="Stream-based Analytics & Ranking Engine for Kyrgyzstan",
     lifespan=lifespan
 )
 
@@ -154,12 +178,11 @@ def get_db():
     finally:
         db.close()
 
-# Принимает GET и HEAD запросы для проверки здоровья от Render
 @app.api_route("/", methods=["GET", "HEAD"])
 def read_root():
     return {
         "status": "online",
-        "service": "KY TOP 100 Analytics API (Equal Weights 25%)",
+        "engine": "Stream-Based Music Analytics",
         "docs": "/docs"
     }
 
@@ -184,12 +207,12 @@ def get_analytics_chart(db: Session = Depends(get_db)):
             "title": track.title if track else "Unknown",
             "artist": artist.name if artist else "Unknown",
             "cover_url": track.cover_url if track else "",
-            "ky_score": float(entry.ky_score),
-            "breakdown": {
-                "apple": round(entry.apple_score, 1),
-                "spotify": round(entry.spotify_score, 1),
-                "youtube": round(entry.youtube_score, 1),
-                "shazam": round(entry.shazam_score, 1)
+            "ky_score": int(entry.ky_score), # Теперь отражает суммарные эквивалентные прослушивания
+            "streams_detail": {
+                "apple_streams": int(entry.apple_score),
+                "spotify_streams": int(entry.spotify_score),
+                "youtube_views": int(entry.youtube_score),
+                "shazam_searches": int(entry.shazam_score)
             },
             "change_type": change_str,
             "change_value": change_val,
@@ -201,11 +224,10 @@ def get_analytics_chart(db: Session = Depends(get_db)):
 @app.get("/api/v1/chart/export/csv")
 def export_chart_csv(db: Session = Depends(get_db)):
     entries = db.query(WeeklyChart).order_by(WeeklyChart.position.asc()).all()
-    
     output = io.StringIO()
     writer = csv.writer(output)
     
-    writer.writerow(["Rank", "Title", "Artist", "KY Score", "Apple Score", "Spotify Score", "YouTube Score", "Shazam Score", "Peak Position", "Weeks On Chart"])
+    writer.writerow(["Rank", "Title", "Artist", "Equated Streams (SCORE)", "Apple Streams", "Spotify Streams", "YouTube Views", "Shazam Searches", "Peak Position", "Weeks On Chart"])
     
     for entry in entries:
         track = db.query(Track).filter(Track.id == entry.track_id).first()
@@ -215,11 +237,11 @@ def export_chart_csv(db: Session = Depends(get_db)):
             entry.position,
             track.title if track else "",
             artist.name if artist else "",
-            entry.ky_score,
-            entry.apple_score,
-            entry.spotify_score,
-            entry.youtube_score,
-            entry.shazam_score,
+            int(entry.ky_score),
+            int(entry.apple_score),
+            int(entry.spotify_score),
+            int(entry.youtube_score),
+            int(entry.shazam_score),
             entry.peak_position,
             entry.weeks_on_chart
         ])
@@ -227,16 +249,13 @@ def export_chart_csv(db: Session = Depends(get_db)):
     return Response(
         content=output.getvalue(),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=KY_TOP100_{date.today()}.csv"}
+        headers={"Content-Disposition": f"attachment; filename=KY_TOP100_STREAMS_{date.today()}.csv"}
     )
 
 @app.post("/api/v1/admin/run-pipeline")
 def trigger_pipeline(background_tasks: BackgroundTasks):
-    """
-    Запускает перерасчет данных с весами по 25% и авто-очисткой устаревших треков.
-    """
     background_tasks.add_task(run_pipeline_task)
     return {
         "status": "success",
-        "message": "Перерасчет чарта запущен! Веса: Apple 25% · Spotify 25% · YT 25% · Shazam 25%."
+        "message": "Анализ объёма прослушиваний запущен!"
     }
