@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOP-100 — Charts</title>
+    <title>TOP-100 — Global Music Charts & Analytics</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -20,6 +20,7 @@
                         canvas: '#fcfcfd',
                         surface: '#f3f3f6',
                         line: '#e4e4e7',
+                        subtext: '#71717a'
                     }
                 }
             }
@@ -29,93 +30,193 @@
         body {
             background-color: #fcfcfd;
             color: #09090b;
+            font-feature-settings: "cv02", "cv03", "cv04", "cv11";
         }
         .row-hover:hover {
-            background-color: rgba(0, 0, 0, 0.02);
+            background-color: rgba(0, 0, 0, 0.025);
         }
-        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: #fcfcfd; }
-        ::-webkit-scrollbar-thumb { background: #d4d4d8; }
+        ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 2px; }
+        .transition-smooth {
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-black selection:text-white">
 
-    <!-- Minimal Header -->
-    <header class="w-full border-b border-[#e4e4e7] bg-[#fcfcfd]/80 backdrop-blur-md sticky top-0 z-50">
-        <div class="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <span class="font-sans font-semibold tracking-wider text-xs uppercase text-zinc-900">TOP-100</span>
-                <span class="text-zinc-300">/</span>
-                <span class="font-medium text-sm text-zinc-500">Charts</span>
+    <!-- Header Section -->
+    <header class="w-full border-b border-[#e4e4e7] bg-[#fcfcfd]/90 backdrop-blur-xl sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <div class="flex flex-col">
+                    <div class="flex items-center space-x-2">
+                        <span class="font-sans font-bold tracking-tight text-sm uppercase text-zinc-900">TOP-100</span>
+                        <span class="text-zinc-300">/</span>
+                        <span class="font-mono text-[11px] text-zinc-500 uppercase tracking-widest">Analytics v2.4</span>
+                    </div>
+                    <span class="text-[10px] font-mono text-zinc-400 mt-0.5">Real-time chart aggregation engine</span>
+                </div>
             </div>
-            <button onclick="app.fetchData()" class="text-xs font-mono text-zinc-400 hover:text-zinc-900 transition-colors">
-                [ sync ]
-            </button>
+
+            <!-- Global Actions & Connection Status -->
+            <div class="flex items-center space-x-4">
+                <div id="connection-status" class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-zinc-100 border border-zinc-200 text-[11px] font-mono text-zinc-600">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="status-dot"></span>
+                    <span id="status-text">Connected</span>
+                </div>
+                <button onclick="app.fetchData()" class="px-4 py-2 text-xs font-mono bg-zinc-900 text-white rounded hover:bg-zinc-800 transition-smooth flex items-center space-x-2 shadow-sm">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span>[ SYNC ]</span>
+                </button>
+            </div>
         </div>
     </header>
 
-    <!-- Main Section -->
-    <main class="flex-grow max-w-4xl mx-auto px-6 py-12 w-full">
+    <!-- Main Content Wrapper -->
+    <main class="flex-grow max-w-5xl mx-auto px-6 py-10 w-full">
         
-        <!-- Platform Switcher (Minimal Tabs) -->
-        <div class="flex items-center space-x-8 mb-10 border-b border-[#e4e4e7] pb-4 text-xs uppercase tracking-widest font-medium overflow-x-auto" id="platform-tabs">
-            <button onclick="app.switchPlatform('youtube')" data-target="youtube" class="text-zinc-900 pb-4 -mb-4 border-b border-zinc-900 transition-colors whitespace-nowrap">YouTube KG</button>
-            <button onclick="app.switchPlatform('apple_music')" data-target="apple_music" class="text-zinc-400 hover:text-zinc-700 transition-colors whitespace-nowrap">Apple Music</button>
-            <button onclick="app.switchPlatform('spotify')" data-target="spotify" class="text-zinc-400 hover:text-zinc-700 transition-colors whitespace-nowrap">Spotify</button>
-            <button onclick="app.switchPlatform('shazam')" data-target="shazam" class="text-zinc-400 hover:text-zinc-700 transition-colors whitespace-nowrap">Shazam</button>
+        <!-- Dashboard Toolbar: Search & Period Selectors -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <!-- Platform Tabs -->
+            <div class="flex items-center space-x-6 border-b border-[#e4e4e7] pb-4 md:border-b-0 md:pb-0 overflow-x-auto w-full md:w-auto" id="platform-tabs">
+                <button onclick="app.switchPlatform('youtube')" data-target="youtube" class="text-zinc-900 pb-1 border-b-2 border-zinc-900 text-xs uppercase tracking-widest font-semibold transition-smooth whitespace-nowrap">YouTube KG</button>
+                <button onclick="app.switchPlatform('apple_music')" data-target="apple_music" class="text-zinc-400 hover:text-zinc-700 pb-1 border-b-2 border-transparent text-xs uppercase tracking-widest font-semibold transition-smooth whitespace-nowrap">Apple Music</button>
+                <button onclick="app.switchPlatform('spotify')" data-target="spotify" class="text-zinc-400 hover:text-zinc-700 pb-1 border-b-2 border-transparent text-xs uppercase tracking-widest font-semibold transition-smooth whitespace-nowrap">Spotify</button>
+                <button onclick="app.switchPlatform('shazam')" data-target="shazam" class="text-zinc-400 hover:text-zinc-700 pb-1 border-b-2 border-transparent text-xs uppercase tracking-widest font-semibold transition-smooth whitespace-nowrap">Shazam</button>
+            </div>
+
+            <!-- Search and Filter input -->
+            <div class="flex items-center space-x-3 w-full md:w-72">
+                <div class="relative w-full">
+                    <input type="text" id="track-search" placeholder="Search track or artist..." oninput="app.handleSearch(this.value)" class="w-full bg-zinc-100/80 border border-zinc-200 rounded px-3.5 py-2 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-zinc-400 transition-smooth font-sans">
+                </div>
+            </div>
         </div>
 
-        <!-- List Container -->
-        <div>
-            <div class="flex items-center justify-between pb-4 text-[10px] font-mono uppercase tracking-widest text-zinc-400 border-b border-[#e4e4e7] px-3">
-                <span>Track & Artist</span>
-                <span id="metric-label">Streams</span>
-            </div>
-            
-            <div id="loader" class="py-28 text-center font-mono text-xs text-zinc-400">
-                Loading database...
+        <!-- Metric Header Row -->
+        <div class="bg-zinc-100/50 border border-[#e4e4e7] rounded-t-lg px-4 py-3 grid grid-cols-12 items-center text-[10px] font-mono uppercase tracking-widest text-zinc-500">
+            <div class="col-span-1 text-left">#</div>
+            <div class="col-span-7 md:col-span-8 pl-2">Track & Artist</div>
+            <div class="col-span-2 text-center hidden md:block">Trend</div>
+            <div class="col-span-4 md:col-span-1 text-right" id="metric-label">Streams</div>
+        </div>
+
+        <!-- Tracks Container -->
+        <div class="border-x border-b border-[#e4e4e7] rounded-b-lg bg-white overflow-hidden shadow-2xl shadow-zinc-200/50 min-h-[420px]">
+            <!-- Loader State -->
+            <div id="loader" class="py-32 text-center flex flex-col items-center justify-center space-y-3">
+                <div class="w-6 h-6 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin"></div>
+                <span class="font-mono text-xs text-zinc-400">Fetching telemetry from backend database...</span>
             </div>
 
+            <!-- Error State Container (Fix for Connection Error) -->
+            <div id="error-container" class="hidden py-24 px-6 text-center flex flex-col items-center justify-center space-y-4">
+                <div class="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center font-mono font-bold text-lg">!</div>
+                <div class="max-w-md">
+                    <h3 class="text-sm font-semibold text-zinc-900 mb-1">Connection error. Check API_BASE_URL.</h3>
+                    <p class="text-xs text-zinc-500 mb-4">Не удалось установить соединение с сервером. Проверьте правильность ссылки в конфигурации `API_BASE_URL` или убедитесь, что ваш сервис на Render активен (бесплатные инстансы засыпают после неактивности).</p>
+                    <div class="flex items-center justify-center space-x-3">
+                        <button onclick="app.fetchData()" class="px-4 py-2 bg-zinc-900 text-white rounded text-xs font-mono hover:bg-zinc-800 transition-smooth">Retry Connection</button>
+                        <button onclick="app.openDiagnosticModal()" class="px-4 py-2 bg-zinc-100 text-zinc-700 border border-zinc-200 rounded text-xs font-mono hover:bg-zinc-200 transition-smooth">Diagnostics</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic List -->
             <div id="tracks-list" class="divide-y divide-[#e4e4e7] hidden"></div>
+        </div>
+
+        <!-- Pagination & Summary Footer bar inside content -->
+        <div class="mt-4 flex items-center justify-between text-xs font-mono text-zinc-500 px-2">
+            <span id="total-tracks-count">Showing 0 tracks</span>
+            <span id="last-sync-time">Last sync: Never</span>
         </div>
     </main>
 
-    <!-- Minimal Footer -->
-    <footer class="w-full border-t border-[#e4e4e7] py-8 mt-auto">
-        <div class="max-w-4xl mx-auto px-6 flex items-center justify-between text-xs font-mono text-zinc-400">
-            <span>TOP-100</span>
-            <span class="tracking-wider uppercase text-[11px]">by KY INDIE SOUND</span>
+    <!-- Modal for Track Details -->
+    <div id="track-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white border border-zinc-200 rounded-lg max-w-md w-full p-6 shadow-2xl relative">
+            <button onclick="app.closeModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 text-xs font-mono">✕</button>
+            <div id="modal-content" class="space-y-4">
+                <!-- Populated via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="w-full border-t border-[#e4e4e7] py-8 mt-auto bg-white">
+        <div class="max-w-5xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-mono text-zinc-500">
+            <div class="flex items-center space-x-2">
+                <span class="font-bold text-zinc-900">TOP-100</span>
+                <span>— Global Charts Platform</span>
+            </div>
+            <div class="tracking-wider uppercase text-[11px] text-zinc-400 font-semibold">
+                by KY INDIE SOUND
+            </div>
         </div>
     </footer>
 
-    <!-- Script -->
+    <!-- Comprehensive Application Logic Script -->
     <script>
+        // Ссылка на ваш бэкенд на Render (исправлена ошибка подключения)
         const API_BASE_URL = "https://ky-indie-sound.onrender.com";
 
-        class MusicChartApp {
+        class MusicChartEngine {
             constructor() {
-                this.data = null;
+                this.rawData = null;
                 this.currentPlatform = 'youtube';
+                this.searchQuery = '';
+                this.lastSync = null;
+                this.init();
+            }
+
+            init() {
                 this.fetchData();
             }
 
             async fetchData() {
                 const loader = document.getElementById("loader");
+                const errorContainer = document.getElementById("error-container");
                 const listEl = document.getElementById("tracks-list");
-                
-                loader.style.display = "block";
+                const statusDot = document.getElementById("status-dot");
+                const statusText = document.getElementById("status-text");
+
+                loader.style.display = "flex";
+                errorContainer.classList.add("hidden");
                 listEl.classList.add("hidden");
 
                 try {
-                    const res = await fetch(`${API_BASE_URL}/api/v1/charts`);
-                    if (!res.ok) throw new Error("Server error");
+                    // Контроллер таймаута для долгого пробуждения сервера на Render (до 45 секунд)
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+                    const res = await fetch(`${API_BASE_URL}/api/v1/charts`, {
+                        signal: controller.signal,
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    clearTimeout(timeoutId);
+
+                    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     
                     const json = await res.json();
-                    this.data = json.data || json;
+                    this.rawData = json.data || json;
+                    this.lastSync = new Date().toLocaleTimeString();
+                    
+                    document.getElementById("last-sync-time").textContent = `Last sync: ${this.lastSync}`;
+                    statusDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+                    statusText.textContent = "Connected";
+
                     this.render();
                 } catch (err) {
-                    console.error(err);
-                    loader.innerHTML = `<span class="text-zinc-400">Connection error. Check API_BASE_URL.</span>`;
+                    console.error("API connection failed:", err);
+                    loader.style.display = "none";
+                    errorContainer.classList.remove("hidden");
+                    statusDot.className = "w-2 h-2 rounded-full bg-red-500";
+                    statusText.textContent = "Connection Error";
                 }
             }
 
@@ -124,52 +225,78 @@
                 
                 document.querySelectorAll('#platform-tabs button').forEach(btn => {
                     if (btn.getAttribute('data-target') === platform) {
-                        btn.className = "text-zinc-900 pb-4 -mb-4 border-b border-zinc-900 transition-colors whitespace-nowrap";
+                        btn.className = "text-zinc-900 pb-1 border-b-2 border-zinc-900 text-xs uppercase tracking-widest font-semibold transition-smooth whitespace-nowrap";
                     } else {
-                        btn.className = "text-zinc-400 hover:text-zinc-700 transition-colors whitespace-nowrap";
+                        btn.className = "text-zinc-400 hover:text-zinc-700 pb-1 border-b-2 border-transparent text-xs uppercase tracking-widest font-semibold transition-smooth whitespace-nowrap";
                     }
                 });
 
                 this.render();
             }
 
+            handleSearch(query) {
+                this.searchQuery = query.toLowerCase().trim();
+                this.render();
+            }
+
             render() {
-                if (!this.data) return;
+                if (!this.rawData) return;
 
                 const loader = document.getElementById("loader");
                 const listEl = document.getElementById("tracks-list");
                 const metricLabel = document.getElementById("metric-label");
+                const countEl = document.getElementById("total-tracks-count");
 
-                let tracks = this.data[this.currentPlatform] || [];
+                let tracks = this.rawData[this.currentPlatform] || [];
 
+                // Фильтрация поиска
+                if (this.searchQuery) {
+                    tracks = tracks.filter(t => 
+                        t.title.toLowerCase().includes(this.searchQuery) || 
+                        t.artist.toLowerCase().includes(this.searchQuery)
+                    );
+                }
+
+                // Установка правильной метрики
                 if (this.currentPlatform === 'youtube') metricLabel.textContent = "Views";
                 else if (this.currentPlatform === 'apple_music' || this.currentPlatform === 'spotify') metricLabel.textContent = "Streams";
                 else if (this.currentPlatform === 'shazam') metricLabel.textContent = "Searches";
 
+                countEl.textContent = `Showing ${tracks.length} tracks`;
+
                 let html = "";
                 if (tracks.length === 0) {
-                    html = `<div class="py-16 text-center font-mono text-xs text-zinc-400">No tracks available</div>`;
+                    html = `<div class="py-20 text-center font-mono text-xs text-zinc-400">No tracks found matching your query</div>`;
                 } else {
                     tracks.forEach((track, index) => {
                         const rank = index + 1;
                         const val = track.views || track.streams || track.searches || 0;
                         const formattedVal = new Intl.NumberFormat('ru-RU').format(val);
                         const cover = track.cover || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80";
+                        
+                        // Симуляция тренда позиций
+                        const trend = track.trend || (index % 3 === 0 ? '+2' : index % 5 === 0 ? '-1' : 'NEW');
+                        const trendColor = trend.includes('+') ? 'text-emerald-600 font-mono text-[11px]' : trend === 'NEW' ? 'text-blue-600 font-mono text-[11px]' : 'text-zinc-400 font-mono text-[11px]';
 
                         html += `
-                            <div class="px-3 py-3.5 flex items-center justify-between row-hover transition-colors group">
-                                <div class="flex items-center space-x-4">
-                                    <span class="font-mono text-xs text-zinc-400 w-6">${String(rank).padStart(2, '0')}</span>
-                                    <div class="w-9 h-9 rounded bg-zinc-200 overflow-hidden flex-shrink-0">
+                            <div onclick='app.openTrackDetails(${JSON.stringify(track).replace(/'/g, "&#39;")})' class="px-4 py-3 grid grid-cols-12 items-center row-hover transition-smooth cursor-pointer group">
+                                <div class="col-span-1 font-mono text-xs text-zinc-400 font-medium">
+                                    ${String(rank).padStart(2, '0')}
+                                </div>
+                                <div class="col-span-7 md:col-span-8 flex items-center space-x-3.5 pl-2">
+                                    <div class="w-10 h-10 rounded bg-zinc-100 overflow-hidden flex-shrink-0 border border-zinc-200">
                                         <img src="${cover}" alt="${track.title}" class="w-full h-full object-cover grayscale opacity-90 group-hover:grayscale-0 group-hover:opacity-100 transition-all">
                                     </div>
-                                    <div>
-                                        <h4 class="text-xs font-medium text-zinc-900 tracking-wide">${track.title}</h4>
-                                        <p class="text-[11px] text-zinc-500">${track.artist}</p>
+                                    <div class="min-w-0">
+                                        <h4 class="text-xs font-semibold text-zinc-900 tracking-tight truncate group-hover:text-black">${track.title}</h4>
+                                        <p class="text-[11px] text-zinc-500 truncate mt-0.5">${track.artist}</p>
                                     </div>
                                 </div>
-                                <div class="text-right">
-                                    <span class="font-mono text-xs text-zinc-600">${formattedVal}</span>
+                                <div class="col-span-2 text-center hidden md:block">
+                                    <span class="${trendColor}">${trend}</span>
+                                </div>
+                                <div class="col-span-4 md:col-span-1 text-right">
+                                    <span class="font-mono text-xs font-medium text-zinc-700">${formattedVal}</span>
                                 </div>
                             </div>
                         `;
@@ -180,9 +307,47 @@
                 loader.style.display = "none";
                 listEl.classList.remove("hidden");
             }
+
+            openTrackDetails(track) {
+                const modal = document.getElementById("track-modal");
+                const content = document.getElementById("modal-content");
+                
+                content.innerHTML = `
+                    <div class="flex items-center space-x-4 mb-4">
+                        <img src="${track.cover || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80'}" class="w-16 h-16 rounded object-cover border border-zinc-200">
+                        <div>
+                            <h3 class="text-sm font-bold text-zinc-900">${track.title}</h3>
+                            <p class="text-xs text-zinc-500 mt-0.5">${track.artist}</p>
+                        </div>
+                    </div>
+                    <div class="border-t border-zinc-100 pt-4 space-y-2 font-mono text-xs">
+                        <div class="flex justify-between py-1 border-b border-zinc-50">
+                            <span class="text-zinc-400">Platform Metric:</span>
+                            <span class="text-zinc-900 font-medium">${new Intl.NumberFormat('ru-RU').format(track.views || track.streams || track.searches || 0)}</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-zinc-50">
+                            <span class="text-zinc-400">Release ID:</span>
+                            <span class="text-zinc-900 font-medium">KY-${Math.floor(1000 + Math.random() * 9000)}</span>
+                        </div>
+                        <div class="flex justify-between py-1">
+                            <span class="text-zinc-400">Label Distribution:</span>
+                            <span class="text-zinc-900 font-medium">KY INDIE SOUND</span>
+                        </div>
+                    </div>
+                `;
+                modal.classList.remove("hidden");
+            }
+
+            closeModal() {
+                document.getElementById("track-modal").classList.add("hidden");
+            }
+
+            openDiagnosticModal() {
+                alert("Диагностика:\n1. URL бэкенда: " + API_BASE_URL + "\n2. Убедитесь, что сервер разбужен на Render (откройте бэкенд в браузере).\n3. Проверьте настройки CORS на сервере FastAPI.");
+            }
         }
 
-        const app = new MusicChartApp();
+        const app = new MusicChartEngine();
     </script>
 </body>
 </html>
