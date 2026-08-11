@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import date
+from contextlib import asynccontextmanager
 import random
 import csv
 import io
@@ -9,35 +10,6 @@ import io
 from database import SessionLocal, init_db, WeeklyChart, Track, Artist, PlatformMetric
 from collectors import MultiPlatformCollector
 from analytics import KYChartAnalyticsEngine
-
-app = FastAPI(
-    title="KY TOP 100 Analytics Platform API",
-    version="2.0.0",
-    description="Cross-Platform Music Index & Analytics Engine for Kyrgyzstan"
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-@app.on_event("startup")
-def startup():
-    init_db()
-    db = SessionLocal()
-    if db.query(WeeklyChart).count() == 0:
-        run_full_analysis_pipeline(db)
-    db.close()
 
 def run_full_analysis_pipeline(db: Session):
     collector = MultiPlatformCollector()
@@ -92,6 +64,39 @@ def run_full_analysis_pipeline(db: Session):
     db.commit()
     return len(processed)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    db = SessionLocal()
+    try:
+        if db.query(WeeklyChart).count() == 0:
+            run_full_analysis_pipeline(db)
+    finally:
+        db.close()
+    yield
+
+app = FastAPI(
+    title="KY TOP 100 Analytics Platform API",
+    version="2.0.0",
+    description="Cross-Platform Music Index & Analytics Engine for Kyrgyzstan",
+    lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 @app.get("/api/v1/chart/analytics")
 def get_analytics_chart(db: Session = Depends(get_db)):
     entries = db.query(WeeklyChart).order_by(WeeklyChart.position.asc()).limit(100).all()
@@ -129,13 +134,11 @@ def get_analytics_chart(db: Session = Depends(get_db)):
 
 @app.get("/api/v1/chart/export/csv")
 def export_chart_csv(db: Session = Depends(get_db)):
-    """Выгрузка актуального чарта в формате CSV для Excel"""
     entries = db.query(WeeklyChart).order_by(WeeklyChart.position.asc()).all()
     
     output = io.StringIO()
     writer = csv.writer(output)
     
-    # Заголовки CSV
     writer.writerow(["Rank", "Title", "Artist", "KY Score", "Apple Score", "Spotify Score", "YouTube Score", "Shazam Score", "Peak Position", "Weeks On Chart"])
     
     for entry in entries:
