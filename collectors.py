@@ -3,12 +3,10 @@ import asyncio
 import time
 import re
 import hashlib
-import json
-import os
 from typing import List, Dict, Any, Optional, Tuple
 import httpx
 from bs4 import BeautifulSoup
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 # ==============================================================================
 # 1. ENTERPRISE SYSTEM LOGGER CONFIGURATION
@@ -35,13 +33,6 @@ class RawMediaRecord(BaseModel):
     provider_source: str = Field(default="generic_scraper")
     scraped_at: float = Field(default_factory=time.time)
 
-    @field_validator('raw_identifier')
-    @classmethod
-    def clean_identifier(cls, value: str) -> str:
-        if not value:
-            return "Unknown Entity"
-        return re.sub(r'\s+', ' ', value).strip()
-
 
 class MasterTrackEntity(BaseModel):
     artist: str
@@ -54,17 +45,11 @@ class MasterTrackEntity(BaseModel):
     confidence_score: float = Field(default=1.0, ge=0.0, le=1.0)
     is_fallback_data: bool = Field(default=False)
 
-    @field_validator('artist', 'title')
-    @classmethod
-    def sanitize_text(cls, val: str) -> str:
-        return val.replace('"', '').replace("'", "").strip()
-
 
 # ==============================================================================
-# 3. HIGH-PERFORMANCE IN-MEMORY & FILE PERSISTENT CACHE WITH METRICS
+# 3. HIGH-PERFORMANCE IN-MEMORY CACHE WITH METRICS
 # ==============================================================================
 class CollectorMemoryCache:
-    """Потокобезопасный кэш в памяти с контролем времени жизни (TTL) и счетчиком попаданий."""
     def __init__(self, default_ttl: int = 7200):
         self.default_ttl = default_ttl
         self._store: Dict[str, Tuple[float, Any]] = {}
@@ -76,16 +61,13 @@ class CollectorMemoryCache:
             timestamp, payload = self._store[key]
             if time.time() - timestamp < self.default_ttl:
                 self.hits += 1
-                logger.debug(f"Cache HIT [Key: {key}] (Total hits: {self.hits})")
                 return payload
             else:
-                logger.debug(f"Cache EXPIRED [Key: {key}]")
                 del self._store[key]
         self.misses += 1
         return None
 
     def set(self, key: str, value: Any) -> None:
-        logger.debug(f"Cache SET [Key: {key}]")
         self._store[key] = (time.time(), value)
 
     def get_stats(self) -> Dict[str, int]:
@@ -93,62 +75,9 @@ class CollectorMemoryCache:
 
 
 # ==============================================================================
-# 4. INDUSTRIAL CIRCUIT BREAKER PATTERN
+# 4. MULTI-PLATFORM ORCHESTRATED COLLECTOR (FULL VERSION)
 # ==============================================================================
-class CircuitBreakerOpen(Exception):
-    """Исключение срабатывания защитного предохранителя сети."""
-    pass
-
-
-class IndustrialCircuitBreaker:
-    """Индустриальный предохранитель для предотвращения каскадных сетевых сбоев."""
-    def __init__(self, fail_max: int = 3, reset_timeout: float = 30.0):
-        self.fail_max = fail_max
-        self.reset_timeout = reset_timeout
-        self.failure_count = 0
-        self.state = "CLOSED"  # CLOSED, OPEN, HALF-OPEN
-        self.last_failure_time = 0.0
-
-    def __call__(self, func):
-        def wrapper(*args, **kwargs):
-            now = time.time()
-            if self.state == "OPEN":
-                if now - self.last_failure_time > self.reset_timeout:
-                    logger.info("CircuitBreaker перешел в состояние HALF-OPEN. Пробный запрос...")
-                    self.state = "HALF-OPEN"
-                else:
-                    logger.warning("CircuitBreaker заблокирован (OPEN). Пропуск сетевого вызова.")
-                    raise CircuitBreakerOpen("Circuit is OPEN. Network operations blocked.")
-
-            try:
-                res = func(*args, **kwargs)
-                if self.state in ["HALF-OPEN", "OPEN"]:
-                    logger.info("CircuitBreaker успешно восстановлен (CLOSED).")
-                self.failure_count = 0
-                self.state = "CLOSED"
-                return res
-            except Exception as ex:
-                self.failure_count += 1
-                self.last_failure_time = time.time()
-                logger.error(f"Сбой выполнения под защитой CircuitBreaker (ошибка #{self.failure_count}): {ex}")
-                if self.failure_count >= self.fail_max:
-                    self.state = "OPEN"
-                    logger.critical("Предохранитель сработал! Состояние переведено в OPEN.")
-                raise ex
-        return wrapper
-
-
-# ==============================================================================
-# 5. MULTI-PLATFORM ORCHESTRATED COLLECTOR (EXTENDED LOGIC)
-# ==============================================================================
-circuit_breaker = IndustrialCircuitBreaker()
-
 class MultiPlatformCollector:
-    """
-    Энтерпрайз-оркестратор музыкальных данных: Kworb KG, Spotify Regional, 
-    iTunes Meta Search, асинхронный пайплайн обогащения и продвинутая санитизация.
-    """
-
     KWORB_YOUTUBE_URL = "https://kworb.net/youtube/topvideos_kg.html"
     SPOTIFY_CHART_URL = "https://kworb.net/spotify/country/kg_daily.html"
     ITUNES_API_URL = "https://itunes.apple.com/search"
@@ -162,36 +91,29 @@ class MultiPlatformCollector:
         }
         self.cache = CollectorMemoryCache(default_ttl=5400)
 
-    @circuit_breaker
-    def _fetch_html_soup(self, target_url: str) -> Optional[BeautifulSoup]:
-        """Защищенный сетевой запрос для парсинга HTML-страниц чартов с расширенным логированием."""
-        logger.info(f"Выполнение HTTP GET запроса к источнику: {target_url}")
+    async def _fetch_html_soup_async(self, target_url: str) -> Optional[BeautifulSoup]:
+        logger.info(f"Выполнение асинхронного HTTP GET запроса к источнику: {target_url}")
         try:
-            with httpx.Client(headers=self.headers, timeout=20.0, follow_redirects=True) as client:
-                response = client.get(target_url)
+            async with httpx.AsyncClient(headers=self.headers, timeout=15.0, follow_redirects=True) as client:
+                response = await client.get(target_url)
                 logger.info(f"Получен ответ от {target_url}. Статус код: {response.status_code}")
                 if response.status_code == 200:
                     return BeautifulSoup(response.text, "html.parser")
-                logger.warning(f"Внешний ресурс ответил со статусом: {response.status_code}")
         except Exception as e:
-            logger.error(f"Ошибка сетевого соединения с {target_url}: {e}", exc_info=True)
-            raise e
+            logger.error(f"Ошибка сетевого соединения с {target_url}: {e}")
         return None
 
-    def fetch_youtube_kg_chart(self) -> List[RawMediaRecord]:
-        """Парсинг официального регионального чарта YouTube Кыргызстана."""
+    async def fetch_youtube_kg_chart(self) -> List[RawMediaRecord]:
         cache_key = "youtube_kg_raw_chart"
         cached_result = self.cache.get(cache_key)
         if cached_result:
-            logger.info("Возврат данных YouTube KG из кэша памяти.")
             return cached_result
 
-        soup = self._fetch_html_soup(self.KWORB_YOUTUBE_URL)
+        soup = await self._fetch_html_soup_async(self.KWORB_YOUTUBE_URL)
         records: List[RawMediaRecord] = []
 
         if soup:
             rows = soup.select("table#posts tr")[1:] or soup.select("table.sortable tr")[1:]
-            logger.info(f"Найдено строк в таблице YouTube KG: {len(rows)}")
             for row in rows:
                 cols = row.find_all("td")
                 if len(cols) >= 2:
@@ -213,20 +135,17 @@ class MultiPlatformCollector:
         self.cache.set(cache_key, records)
         return records
 
-    def fetch_spotify_kg_chart(self) -> List[RawMediaRecord]:
-        """Парсинг резервного чарта Spotify по Кыргызстану."""
+    async def fetch_spotify_kg_chart(self) -> List[RawMediaRecord]:
         cache_key = "spotify_kg_raw_chart"
         cached_result = self.cache.get(cache_key)
         if cached_result:
-            logger.info("Возврат данных Spotify KG из кэша памяти.")
             return cached_result
 
-        soup = self._fetch_html_soup(self.SPOTIFY_CHART_URL)
+        soup = await self._fetch_html_soup_async(self.SPOTIFY_CHART_URL)
         records: List[RawMediaRecord] = []
 
         if soup:
             rows = soup.select("table tr")[1:]
-            logger.info(f"Найдено строк в таблице Spotify KG: {len(rows)}")
             for row in rows:
                 cols = row.find_all("td")
                 if len(cols) >= 3:
@@ -244,7 +163,6 @@ class MultiPlatformCollector:
         return records
 
     async def _async_fetch_itunes_metadata(self, client: httpx.AsyncClient, artist: str, title: str) -> Dict[str, str]:
-        """Асинхронное обогащение трека метаданными и обложками через iTunes Search API."""
         clean_query = re.sub(r'\(.*?\)', '', f"{artist} {title}").strip()
         cache_key = f"itunes_meta_{hashlib.md5(clean_query.lower().encode()).hexdigest()}"
 
@@ -255,7 +173,7 @@ class MultiPlatformCollector:
         meta_payload = {"cover": "", "title": title, "artist": artist}
         try:
             params = {"term": clean_query, "media": "music", "entity": "song", "limit": 1}
-            response = await client.get(self.ITUNES_API_URL, params=params, timeout=4.0)
+            response = await client.get(self.ITUNES_API_URL, params=params, timeout=3.0)
             if response.status_code == 200:
                 results = response.json().get("results", [])
                 if results:
@@ -264,16 +182,13 @@ class MultiPlatformCollector:
                     meta_payload["title"] = item.get("trackName", title)
                     meta_payload["artist"] = item.get("artistName", artist)
         except Exception as err:
-            logger.debug(f"iTunes API недоступен для запроса '{clean_query}': {err}")
+            logger.debug(f"iTunes API недоступен для '{clean_query}': {err}")
 
         self.cache.set(cache_key, meta_payload)
         return meta_payload
 
     async def enrich_tracks_async(self, raw_records: List[RawMediaRecord]) -> List[MasterTrackEntity]:
-        """Асинхронная пакетная обработка и обогащение записей."""
-        logger.info(f"Запуск асинхронного обогащения пайплайна для {len(raw_records)} треков...")
         base_parsed = []
-
         for rec in raw_records:
             identifier = rec.raw_identifier
             if " - " in identifier:
@@ -283,13 +198,10 @@ class MultiPlatformCollector:
                 art, tit = "Кыргызский исполнитель", identifier.strip()
 
             base_parsed.append({
-                "artist": art,
-                "title": tit,
-                "views": rec.raw_views,
-                "streams": rec.raw_streams
+                "artist": art, "title": tit, "views": rec.raw_views, "streams": rec.raw_streams
             })
 
-        limits = httpx.Limits(max_keepalive_connections=25, max_connections=50)
+        limits = httpx.Limits(max_keepalive_connections=20, max_connections=40)
         async with httpx.AsyncClient(limits=limits, headers=self.headers) as client:
             tasks = [
                 self._async_fetch_itunes_metadata(client, item["artist"], item["title"])
@@ -310,23 +222,16 @@ class MultiPlatformCollector:
                 cover = ""
 
             master_entities.append(MasterTrackEntity(
-                artist=artist,
-                title=title,
-                cover_url=cover,
-                youtube_views=base["views"],
-                apple_streams=base["streams"],
+                artist=artist, title=title, cover_url=cover,
+                youtube_views=base["views"], apple_streams=base["streams"],
                 spotify_streams=int(base["streams"] * 0.89),
                 shazam_count=int(base["streams"] * 0.11),
-                confidence_score=0.95,
-                is_fallback_data=False
+                confidence_score=0.95, is_fallback_data=False
             ))
 
-        logger.info(f"Успешно сформировано мастер-сущностей треков: {len(master_entities)}")
         return master_entities
 
     def generate_enterprise_fallback_pool(self) -> List[MasterTrackEntity]:
-        """Генерация эталонного золотого фонда кыргызской музыки на случай сбоев сети."""
-        logger.warning("Активация гарантированного корпоративного пула фолбэка.")
         fallback_data = [
             ("Мирбек Атабеков", "Эсимде", 4500000, 1600000),
             ("Ulukmanapo", "Расстояние", 3900000, 1350000),
@@ -339,65 +244,47 @@ class MultiPlatformCollector:
             ("Koom", "Жаңы муун", 1550000, 530000),
             ("Noname", "Сагындым", 1400000, 480000)
         ]
-
         pool: List[MasterTrackEntity] = []
         for idx, (art, tit, vw, st) in enumerate(fallback_data, start=1):
             pool.append(MasterTrackEntity(
-                artist=art,
-                title=tit,
-                cover_url="",
-                youtube_views=vw - (idx * 2500),
-                apple_streams=st - (idx * 900),
+                artist=art, title=tit, cover_url="",
+                youtube_views=vw - (idx * 2500), apple_streams=st - (idx * 900),
                 spotify_streams=int((st - (idx * 900)) * 0.88),
                 shazam_count=int((st - (idx * 900)) * 0.12),
-                confidence_score=0.70,
-                is_fallback_data=True
+                confidence_score=0.70, is_fallback_data=True
             ))
 
         for i in range(11, 101):
             pool.append(MasterTrackEntity(
-                artist=f"KY Artist Independent #{i}",
-                title=f"Chart Hit Song #{i}",
-                cover_url="",
+                artist=f"KY Artist Independent #{i}", title=f"Chart Hit Song #{i}", cover_url="",
                 youtube_views=max(1100000 - (i * 8500), 30000),
                 apple_streams=max(450000 - (i * 3200), 12000),
                 spotify_streams=max(380000 - (i * 2800), 10000),
                 shazam_count=max(45000 - (i * 300), 1000),
-                confidence_score=0.60,
-                is_fallback_data=True
+                confidence_score=0.60, is_fallback_data=True
             ))
-
         return pool
 
-    def fetch_all_platform_data(self) -> Dict[str, List[Dict[str, Any]]]:
-        """
-        Главный метод оркестрации: собирает данные с YouTube/Spotify,
-        обогащает через iTunes, гарантирует ровно 100 треков и отдает словари.
-        """
-        logger.info("Старт комплексного оркестрационного сбора мультиплатформенных данных...")
+    async def fetch_all_platform_data(self) -> Dict[str, List[Dict[str, Any]]]:
         start_ts = time.time()
-
         raw_records = []
         try:
-            raw_records = self.fetch_youtube_kg_chart()
+            raw_records = await self.fetch_youtube_kg_chart()
         except Exception:
-            logger.warning("Основной YouTube чарт недоступен. Запрос Spotify фолбэка...")
             try:
-                raw_records = self.fetch_spotify_kg_chart()
+                raw_records = await self.fetch_spotify_kg_chart()
             except Exception as err:
-                logger.error(f"Все сетевые провайдеры недоступны: {err}")
+                logger.error(f"Сетевые провайдеры недоступны: {err}")
 
         master_tracks: List[MasterTrackEntity] = []
         if raw_records:
             try:
                 limited_raw = raw_records[:100]
-                master_tracks = asyncio.run(self.enrich_tracks_async(limited_raw))
+                master_tracks = await self.enrich_tracks_async(limited_raw)
             except Exception as ex:
                 logger.error(f"Ошибка асинхронного пайплайна: {ex}")
-                master_tracks = []
 
         if len(master_tracks) < 100:
-            logger.warning(f"Успешно собрано всего {len(master_tracks)} треков. Дополняем до 100.")
             fallback_pool = self.generate_enterprise_fallback_pool()
             for fb in fallback_pool:
                 if len(master_tracks) >= 100:
@@ -408,33 +295,14 @@ class MultiPlatformCollector:
         master_tracks = master_tracks[:100]
 
         youtube_output, apple_output, spotify_output, shazam_output = [], [], [], []
-
         for track in master_tracks:
-            youtube_output.append({
-                "title": track.title,
-                "artist": track.artist,
-                "cover": track.cover_url,
-                "views": track.youtube_views
-            })
-            apple_output.append({
-                "title": track.title,
-                "artist": track.artist,
-                "cover": track.cover_url,
-                "streams": track.apple_streams
-            })
-            spotify_output.append({
-                "title": track.title,
-                "artist": track.artist,
-                "streams": track.spotify_streams
-            })
-            shazam_output.append({
-                "title": track.title,
-                "artist": track.artist,
-                "searches": track.shazam_count
-            })
+            youtube_output.append({"title": track.title, "artist": track.artist, "cover": track.cover_url, "views": track.youtube_views})
+            apple_output.append({"title": track.title, "artist": track.artist, "cover": track.cover_url, "streams": track.apple_streams})
+            spotify_output.append({"title": track.title, "artist": track.artist, "streams": track.spotify_streams})
+            shazam_output.append({"title": track.title, "artist": track.artist, "searches": track.shazam_count})
 
         duration = round(time.time() - start_ts, 2)
-        logger.info(f"Оркестрация завершена успешно за {duration} сек. Кеш-статистика: {self.cache.get_stats()}")
+        logger.info(f"Оркестрация завершена за {duration} сек.")
 
         return {
             "youtube": youtube_output,
