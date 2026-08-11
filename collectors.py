@@ -1,33 +1,39 @@
 import os
 import asyncio
-import httpx
+import logging
 from typing import List, Dict, Any
+import httpx
+
+logger = logging.getLogger(__name__)
 
 class MultiPlatformCollector:
-    """Оптимизированный асинхронный сборщик чарта KY TOP 100"""
+    """Оптимизированный асинхронный сборщик чарта KY TOP 100."""
 
     def __init__(self, youtube_api_key: str = None):
         self.youtube_api_key = youtube_api_key or os.getenv("YOUTUBE_API_KEY")
 
     async def _fetch_itunes_query(self, client: httpx.AsyncClient, query: str) -> list:
-        url = f"https://itunes.apple.com/search?term={httpx.URL(query).raw_path.decode()}&country=KG&media=music&entity=song&limit=15"
+        url = f"https://itunes.apple.com/search?term={query}&country=KG&media=music&entity=song&limit=15"
         try:
-            res = await client.get(f"https://itunes.apple.com/search?term={query}&country=KG&media=music&entity=song&limit=15", timeout=5.0)
+            res = await client.get(url, timeout=5.0)
             if res.status_code == 200:
                 return res.json().get("results", [])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Ошибка запроса iTunes для '{query}': {e}")
         return []
 
     async def discover_and_fetch_tracks(self) -> List[Dict[str, Any]]:
-        """Параллельный сбор треков сразу по всем артистам"""
-        search_terms = ["кыргызча", "bishkek", "Ulukmanapo", "Jax 02.14", "FreeMan996", "Begish", "Мирбек Атабеков", "Амирчик", "Гулжигит Сатыбеков"]
+        """Параллельный сбор треков сразу по всем ключевым запросам."""
+        search_terms = [
+            "кыргызча", "bishkek", "Ulukmanapo", "Jax 02.14", 
+            "FreeMan996", "Begish", "Мирбек Атабеков", "Амирчик", "Гулжигит Сатыбеков"
+        ]
         
         results = []
         seen = set()
         
         async with httpx.AsyncClient() as client:
-            # Запускаем ВСЕ запросы параллельно!
+            # Запускаем все HTTP-запросы одновременно
             tasks = [self._fetch_itunes_query(client, term) for term in search_terms]
             responses = await asyncio.gather(*tasks)
 
@@ -58,24 +64,22 @@ class MultiPlatformCollector:
 
         return results
 
-    # Запускаем считывание баз 1 раз для всех платформ
-    def fetch_apple_music(self) -> List[Dict[str, Any]]:
-        return asyncio.run(self.discover_and_fetch_tracks())
+    def fetch_all_platform_data(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Один общий асинхронный запуск для всех платформ."""
+        base_tracks = asyncio.run(self.discover_and_fetch_tracks())
 
-    def fetch_spotify_kg(self) -> List[Dict[str, Any]]:
-        tracks = self.fetch_apple_music()
-        for t in tracks:
-            t["streams"] = int(t["streams"] * 0.85)
-        return tracks
-
-    def fetch_youtube_music_kg(self) -> List[Dict[str, Any]]:
-        tracks = self.fetch_apple_music()
-        for t in tracks:
-            t["views"] = int(t["streams"] * 2.5)
-        return tracks
-
-    def fetch_shazam_kg(self) -> List[Dict[str, Any]]:
-        tracks = self.fetch_apple_music()
-        for t in tracks:
-            t["searches"] = int(t["streams"] * 0.15)
-        return tracks
+        return {
+            "apple_music": base_tracks,
+            "spotify": [
+                {"title": t["title"], "artist": t["artist"], "streams": int(t["streams"] * 0.85)} 
+                for t in base_tracks
+            ],
+            "youtube": [
+                {"title": t["title"], "artist": t["artist"], "views": int(t["streams"] * 2.5)} 
+                for t in base_tracks
+            ],
+            "shazam": [
+                {"title": t["title"], "artist": t["artist"], "searches": int(t["streams"] * 0.15)} 
+                for t in base_tracks
+            ]
+        }
