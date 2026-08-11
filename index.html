@@ -3,12 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOP-100 KG — National Music Charts</title>
-    <!-- Fonts -->
+    <title>TOP-100 KG — Minimal Charts</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-    <!-- Tailwind CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -17,25 +15,12 @@
                 extend: {
                     fontFamily: {
                         sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-                        display: ['"Space Grotesk"', 'sans-serif'],
                     },
                     colors: {
-                        obsidian: '#050508',
-                        surface: '#0d0d12',
-                        cardHover: '#161622',
-                        accent: '#ff2e63',
-                        accentGlow: 'rgba(255, 46, 99, 0.25)',
-                        neonCyan: '#00f2fe',
-                    },
-                    animation: {
-                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'float': 'float 6s ease-in-out infinite',
-                    },
-                    keyframes: {
-                        float: {
-                            '0%, 100%': { transform: 'translateY(0px)' },
-                            '50%': { transform: 'translateY(-10px)' },
-                        }
+                        bgDark: '#0a0a0c',
+                        cardBg: '#121216',
+                        borderSubtle: '#1f1f26',
+                        accent: '#ffffff',
                     }
                 }
             }
@@ -43,208 +28,68 @@
     </script>
     <style>
         body {
-            background-color: #050508;
-            color: #f1f5f9;
-            overflow-x: hidden;
+            background-color: #0a0a0c;
+            color: #ededed;
         }
-        .glass-card {
-            background: rgba(13, 13, 18, 0.7);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+        .minimal-border {
+            border-bottom: 1px solid #1f1f26;
         }
-        .glass-card:hover {
-            border-color: rgba(255, 46, 99, 0.3);
-            box-shadow: 0 10px 30px -10px rgba(255, 46, 99, 0.15);
-        }
-        .glow-effect {
-            position: absolute;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, rgba(255, 46, 99, 0.12) 0%, rgba(0, 242, 254, 0.03) 50%, transparent 70%);
-            z-index: 0;
-            pointer-events: none;
-            filter: blur(80px);
-        }
-        .tab-active {
-            background: linear-gradient(135deg, #ff2e63 0%, #ff5e62 100%);
-            color: #ffffff;
-            box-shadow: 0 0 25px rgba(255, 46, 99, 0.4);
-        }
-        /* Custom scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #050508; }
-        ::-webkit-scrollbar-thumb { background: #1a1a24; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #ff2e63; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0a0c; }
+        ::-webkit-scrollbar-thumb { background: #272730; border-radius: 3px; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col relative selection:bg-accent selection:text-white">
-
-    <!-- Ambient background glows -->
-    <div class="glow-effect top-0 left-1/4 -translate-x-1/2"></div>
-    <div class="glow-effect bottom-1/3 right-10"></div>
+<body class="min-h-screen flex flex-col antialiased selection:bg-white selection:text-black">
 
     <!-- Header -->
-    <header class="sticky top-0 z-50 glass-card border-b border-white/5">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-24 flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-accent to-orange-500 flex items-center justify-center shadow-xl shadow-accent/20 animate-float">
-                    <span class="font-display font-bold text-white text-xl tracking-wider">100</span>
-                </div>
-                <div>
-                    <h1 class="font-display font-bold text-2xl tracking-tight text-white flex items-center gap-2">
-                        TOP-100 KG <span class="text-xs px-2.5 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20 font-sans font-semibold">LIVE</span>
-                    </h1>
-                    <p class="text-xs text-zinc-400 font-medium tracking-widest uppercase">National Music Charts & Analytics</p>
-                </div>
+    <header class="sticky top-0 z-50 bg-[#0a0a0c]/80 backdrop-blur-md minimal-border">
+        <div class="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <span class="font-bold tracking-wider text-lg text-white">TOP-100 KG</span>
             </div>
-            <div class="flex items-center space-x-4">
-                <div class="hidden md:flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-surface border border-white/5 text-xs text-zinc-400">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                    <span id="api-status">Syncing with Streams</span>
-                </div>
-                <button onclick="app.refresh()" class="group px-5 py-2.5 rounded-xl bg-surface hover:bg-cardHover text-zinc-200 text-sm font-semibold transition-all duration-300 border border-white/5 flex items-center space-x-2.5 active:scale-95">
-                    <svg class="w-4 h-4 text-zinc-400 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                    <span>Обновить чарт</span>
-                </button>
-            </div>
+            <button onclick="app.fetchData()" class="text-xs uppercase tracking-widest text-zinc-400 hover:text-white transition-colors">
+                Обновить
+            </button>
         </div>
     </header>
 
-    <!-- Main Content Area -->
-    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full relative z-10">
+    <!-- Main Content -->
+    <main class="flex-grow max-w-5xl mx-auto px-6 py-10 w-full">
         
-        <!-- Hero Banner Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-            <div class="lg:col-span-2 glass-card rounded-3xl p-8 relative overflow-hidden flex flex-col justify-between">
-                <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-accent/10 rounded-full blur-3xl pointer-events-none"></div>
-                <div>
-                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-white/5 text-xs font-semibold text-zinc-300 mb-4 border border-white/5">
-                        <svg class="w-3.5 h-3.5 text-accent" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
-                        Главный хит-парад страны
-                    </div>
-                    <h2 class="font-display text-4xl sm:text-5xl font-bold tracking-tight text-white mb-3">Звук Кыргызстана прямо сейчас</h2>
-                    <p class="text-zinc-400 text-sm sm:text-base max-w-xl leading-relaxed">Интерактивный аналитический агрегатор топ-100 композиций. Реальные показатели прослушиваний YouTube, Apple Music, Spotify и Shazam.</p>
-                </div>
-                <div class="flex items-center gap-6 mt-8 pt-6 border-t border-white/5">
-                    <div>
-                        <span class="block text-2xl font-display font-bold text-white" id="stat-total-tracks">100</span>
-                        <span class="text-xs text-zinc-500 uppercase tracking-wider">Треков в чарте</span>
-                    </div>
-                    <div class="w-px h-8 bg-white/10"></div>
-                    <div>
-                        <span class="block text-2xl font-display font-bold text-accent" id="stat-platforms">4</span>
-                        <span class="text-xs text-zinc-500 uppercase tracking-wider">Платформы</span>
-                    </div>
-                    <div class="w-px h-8 bg-white/10"></div>
-                    <div>
-                        <span class="block text-2xl font-display font-bold text-neonCyan" id="stat-update-time">Только что</span>
-                        <span class="text-xs text-zinc-500 uppercase tracking-wider">Синхронизация</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Spotlight Card -->
-            <div class="glass-card rounded-3xl p-6 flex flex-col justify-between border border-white/5 relative overflow-hidden">
-                <div>
-                    <div class="flex items-center justify-between mb-4">
-                        <span class="text-xs font-bold tracking-wider text-accent uppercase">Лидер чарта #1</span>
-                        <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 font-bold">HOT TREND</span>
-                    </div>
-                    <div id="spotlight-card-content" class="space-y-4">
-                        <!-- Dynamic Spotlight injected here -->
-                        <div class="animate-pulse flex space-x-4 items-center py-4">
-                            <div class="rounded-xl bg-white/5 h-16 w-16"></div>
-                            <div class="flex-1 space-y-2">
-                                <div class="h-4 bg-white/5 rounded w-3/4"></div>
-                                <div class="h-3 bg-white/5 rounded w-1/2"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="mt-4 pt-4 border-t border-white/5 text-xs text-zinc-500 flex justify-between items-center">
-                    <span>Лидер недели</span>
-                    <span class="text-zinc-300 font-semibold">YouTube KG / Streams</span>
-                </div>
-            </div>
+        <!-- Platform Switcher (Minimal) -->
+        <div class="flex items-center gap-6 mb-10 overflow-x-auto pb-2 text-sm font-medium" id="platform-tabs">
+            <button onclick="app.switchPlatform('youtube')" data-target="youtube" class="text-white border-b-2 border-white pb-1 transition-all">YouTube KG</button>
+            <button onclick="app.switchPlatform('apple_music')" data-target="apple_music" class="text-zinc-500 hover:text-zinc-300 pb-1 transition-all">Apple Music</button>
+            <button onclick="app.switchPlatform('spotify')" data-target="spotify" class="text-zinc-500 hover:text-zinc-300 pb-1 transition-all">Spotify</button>
+            <button onclick="app.switchPlatform('shazam')" data-target="shazam" class="text-zinc-500 hover:text-zinc-300 pb-1 transition-all">Shazam</button>
         </div>
 
-        <!-- Platform Switcher Navigation -->
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-            <div class="flex flex-wrap gap-2 p-1.5 glass-card rounded-2xl border border-white/5" id="platform-tabs">
-                <button onclick="app.switchPlatform('youtube')" data-target="youtube" class="tab-active px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-                    YouTube KG
-                </button>
-                <button onclick="app.switchPlatform('apple_music')" data-target="apple_music" class="px-6 py-3 rounded-xl text-sm font-semibold text-zinc-400 hover:text-white transition-all duration-300 flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.35c.64-.78 1.07-1.86.95-2.94-1 .04-2.21.67-2.92 1.45-.6.66-1.12 1.75-0.98 2.82 1.12.09 2.25-.56 2.95-1.33z"/></svg>
-                    Apple Music
-                </button>
-                <button onclick="app.switchPlatform('spotify')" data-target="spotify" class="px-6 py-3 rounded-xl text-sm font-semibold text-zinc-400 hover:text-white transition-all duration-300 flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.599-.12-.42.18-.78.6-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.241 1.08zm1.44-3.3c-.301.42-.841.6-1.261.3-3.239-1.98-8.159-2.58-11.939-1.44-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.02.6-1.14 4.2-1.26 9.6-6 13.38-1.5 0 .301.18.84-.24 1.38zm.12-3.48C13.56 8.34 7.8 8.16 4.62 9.12c-.6.18-1.2-.18-1.38-.78-.18-.6.18-1.2.78-1.38 3.6-1.08 10.02-.9 14.4 1.8.54.36.72 1.08.36 1.62-.3.48-1.02.66-1.56.3z"/></svg>
-                    Spotify
-                </button>
-                <button onclick="app.switchPlatform('shazam')" data-target="shazam" class="px-6 py-3 rounded-xl text-sm font-semibold text-zinc-400 hover:text-white transition-all duration-300 flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M11.9 2C6.4 2 2 6.4 2 11.9c0 2.2.7 4.3 1.9 6L2.3 20.3c-.4.4-.4 1 0 1.4.4.4 1 .4 1.4 0l2.3-2.3c1.6 1.2 3.7 1.9 5.9 1.9 5.5 0 9.9-4.4 9.9-9.9S17.4 2 11.9 2zm0 17.8c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm-2-12h4c1.1 0 2 .9 2 2v1c0 1.1-.9 2-2 2h-2v2h2c1.1 0 2 .9 2 2v1c0 1.1-.9 2-2 2h-4c-1.1 0-2-.9-2-2v-1c0-1.1.9-2 2-2h2v-2h-2c-1.1 0-2-.9-2-2v-1c0-1.1.9-2 2-2z"/></svg>
-                    Shazam
-                </button>
+        <!-- Chart List Container -->
+        <div class="bg-cardBg rounded-2xl border border-borderSubtle overflow-hidden">
+            <div class="px-6 py-4 minimal-border flex items-center justify-between text-[11px] uppercase tracking-widest text-zinc-500">
+                <span>Трек</span>
+                <span id="metric-label">Показатель</span>
             </div>
             
-            <div class="w-full sm:w-72">
-                <div class="relative">
-                    <input type="text" id="search-input" oninput="app.handleSearch(this.value)" placeholder="Поиск по треку или артисту..." class="w-full bg-surface border border-white/5 rounded-2xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-accent transition-colors">
-                    <svg class="w-4 h-4 text-zinc-500 absolute right-4 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                </div>
-            </div>
-        </div>
-
-        <!-- Chart Container -->
-        <div class="glass-card rounded-3xl overflow-hidden border border-white/5 shadow-2xl">
-            <div class="px-8 py-5 border-b border-white/5 flex items-center justify-between bg-surface/50">
-                <span class="text-xs font-bold uppercase tracking-widest text-zinc-400">Позиция и трек</span>
-                <span class="text-xs font-bold uppercase tracking-widest text-zinc-400" id="metric-label">Показатель платформы</span>
-            </div>
-            
-            <!-- Loader State -->
-            <div id="loader" class="py-32 flex flex-col items-center justify-center space-y-4">
-                <div class="relative w-16 h-16">
-                    <div class="absolute inset-0 rounded-full border-4 border-accent/20"></div>
-                    <div class="absolute inset-0 rounded-full border-4 border-accent border-t-transparent animate-spin"></div>
-                </div>
-                <p class="text-sm text-zinc-400 font-medium tracking-wide">Загрузка данных национального чарта...</p>
+            <div id="loader" class="py-24 flex flex-col items-center justify-center space-y-3">
+                <div class="w-6 h-6 rounded-full border-2 border-zinc-600 border-t-white animate-spin"></div>
+                <p class="text-xs text-zinc-500 tracking-wide">Загрузка...</p>
             </div>
 
-            <!-- Tracks List -->
-            <div id="tracks-list" class="divide-y divide-white/5 hidden">
-                <!-- Injected via JavaScript -->
-            </div>
+            <div id="tracks-list" class="divide-y divide-[#1f1f26] hidden"></div>
         </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="border-t border-white/5 bg-obsidian py-8 mt-16 relative z-10">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-zinc-500 space-y-4 sm:space-y-0">
-            <div class="flex items-center space-x-3">
-                <div class="w-6 h-6 rounded-lg bg-accent flex items-center justify-center text-white font-bold text-xs">100</div>
-                <span>TOP-100 KG National Music Charts &copy; 2026</span>
-            </div>
-            <p class="font-mono text-[11px] text-zinc-600">Enterprise Engine Core v2.6.0 // Render Secured</p>
-        </div>
-    </footer>
-
-    <!-- Application Script -->
+    <!-- Script -->
     <script>
+        // ВНИМАНИЕ: Замените эту ссылку на точный URL вашего бэкенда на Render без слэша на конце!
         const API_BASE_URL = "https://your-backend-service.onrender.com";
 
         class MusicChartApp {
             constructor() {
                 this.data = null;
                 this.currentPlatform = 'youtube';
-                this.searchQuery = '';
-                this.init();
-            }
-
-            async init() {
-                await this.fetchData();
+                this.fetchData();
             }
 
             async fetchData() {
@@ -255,44 +100,34 @@
                 listEl.classList.add("hidden");
 
                 try {
-                    let responseData;
-                    try {
-                        const res = await fetch(`${API_BASE_URL}/api/v1/charts`);
-                        if (!res.ok) throw new Error("API Offline");
-                        const json = await res.json();
-                        responseData = json.data;
-                        document.getElementById("api-status").textContent = "Live Stream Active";
-                    } catch (e) {
-                        console.warn("Using offline fallback data package.");
-                        document.getElementById("api-status").textContent = "Cached Mode";
-                        responseData = this.getMockData();
-                    }
-
-                    this.data = responseData;
+                    const res = await fetch(`${API_BASE_URL}/api/v1/charts`);
+                    if (!res.ok) throw new Error("Ошибка связи с сервером");
+                    
+                    const json = await res.json();
+                    this.data = json.data || json;
                     this.render();
                 } catch (err) {
-                    console.error("Critical rendering error:", err);
-                    loader.innerHTML = `<p class="text-rose-400 text-sm py-10 font-semibold">Не удалось загрузить данные чартов.</p>`;
+                    console.error(err);
+                    loader.innerHTML = `
+                        <div class="text-center py-10 px-4">
+                            <p class="text-zinc-400 text-xs font-medium mb-1">Не удалось загрузить данные с бэкенда.</p>
+                            <p class="text-[11px] text-zinc-600">Проверьте ссылку API_BASE_URL в коде.</p>
+                        </div>
+                    `;
                 }
             }
 
             switchPlatform(platform) {
                 this.currentPlatform = platform;
                 
-                // Update tab buttons UI
                 document.querySelectorAll('#platform-tabs button').forEach(btn => {
                     if (btn.getAttribute('data-target') === platform) {
-                        btn.className = "tab-active px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2";
+                        btn.className = "text-white border-b-2 border-white pb-1 transition-all";
                     } else {
-                        btn.className = "px-6 py-3 rounded-xl text-sm font-semibold text-zinc-400 hover:text-white transition-all duration-300 flex items-center gap-2";
+                        btn.className = "text-zinc-500 hover:text-zinc-300 pb-1 transition-all";
                     }
                 });
 
-                this.render();
-            }
-
-            handleSearch(query) {
-                this.searchQuery = query.toLowerCase().trim();
                 this.render();
             }
 
@@ -305,48 +140,34 @@
 
                 let tracks = this.data[this.currentPlatform] || [];
 
-                // Filter by search query
-                if (this.searchQuery) {
-                    tracks = tracks.filter(t => 
-                        t.title.toLowerCase().includes(this.searchQuery) || 
-                        t.artist.toLowerCase().includes(this.searchQuery)
-                    );
-                }
-
-                // Set metric header title
-                if (this.currentPlatform === 'youtube') metricLabel.textContent = "Просмотры видео";
-                else if (this.currentPlatform === 'apple_music' || this.currentPlatform === 'spotify') metricLabel.textContent = "Стримы трека";
-                else if (this.currentPlatform === 'shazam') metricLabel.textContent = "Поиски Shazam";
-
-                // Render spotlight card
-                this.renderSpotlight(this.data['youtube'] || tracks);
+                if (this.currentPlatform === 'youtube') metricLabel.textContent = "Просмотры";
+                else if (this.currentPlatform === 'apple_music' || this.currentPlatform === 'spotify') metricLabel.textContent = "Стримы";
+                else if (this.currentPlatform === 'shazam') metricLabel.textContent = "Поиски";
 
                 let html = "";
                 if (tracks.length === 0) {
-                    html = `<div class="py-20 text-center text-zinc-500 text-sm">Треков по вашему запросу не найдено.</div>`;
+                    html = `<div class="py-16 text-center text-zinc-600 text-xs">Нет данных</div>`;
                 } else {
                     tracks.forEach((track, index) => {
                         const rank = index + 1;
                         const val = track.views || track.streams || track.searches || 0;
                         const formattedVal = new Intl.NumberFormat('ru-RU').format(val);
-                        const cover = track.cover && track.cover !== "" ? track.cover : "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80";
+                        const cover = track.cover || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80";
 
                         html += `
-                            <div class="px-8 py-5 flex items-center justify-between hover:bg-cardHover/60 transition-all duration-200 group">
-                                <div class="flex items-center space-x-6">
-                                    <span class="font-display font-bold text-xl w-8 text-center ${rank <= 3 ? 'text-accent' : 'text-zinc-500'}">#${rank}</span>
-                                    <div class="w-14 h-14 rounded-2xl bg-surface overflow-hidden flex-shrink-0 border border-white/5 relative group-hover:scale-105 transition-transform duration-300 shadow-lg">
+                            <div class="px-6 py-3.5 flex items-center justify-between hover:bg-[#18181f] transition-colors">
+                                <div class="flex items-center space-x-4">
+                                    <span class="text-xs font-mono text-zinc-500 w-6 text-right">${rank}</span>
+                                    <div class="w-10 h-10 rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0">
                                         <img src="${cover}" alt="${track.title}" class="w-full h-full object-cover">
-                                        <div class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
                                     </div>
                                     <div>
-                                        <h4 class="font-display font-bold text-white text-base group-hover:text-accent transition-colors">${track.title}</h4>
-                                        <p class="text-xs sm:text-sm text-zinc-400 font-medium">${track.artist}</p>
+                                        <h4 class="text-sm font-medium text-white">${track.title}</h4>
+                                        <p class="text-xs text-zinc-400">${track.artist}</p>
                                     </div>
                                 </div>
                                 <div class="text-right">
-                                    <span class="font-display font-bold text-base sm:text-lg text-zinc-100">${formattedVal}</span>
-                                    <p class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">метрика</p>
+                                    <span class="text-xs font-mono font-medium text-zinc-300">${formattedVal}</span>
                                 </div>
                             </div>
                         `;
@@ -356,66 +177,6 @@
                 listEl.innerHTML = html;
                 loader.style.display = "none";
                 listEl.classList.remove("hidden");
-            }
-
-            renderSpotlight(tracks) {
-                const container = document.getElementById("spotlight-card-content");
-                if (!tracks || tracks.length === 0) return;
-                const topTrack = tracks[0];
-                const cover = topTrack.cover && topTrack.cover !== "" ? topTrack.cover : "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80";
-                const val = new Intl.NumberFormat('ru-RU').format(topTrack.views || topTrack.streams || topTrack.searches || 4500000);
-
-                container.innerHTML = `
-                    <div class="flex items-center space-x-4">
-                        <div class="w-16 h-16 rounded-2xl overflow-hidden border border-white/10 flex-shrink-0 shadow-lg">
-                            <img src="${cover}" class="w-full h-full object-cover">
-                        </div>
-                        <div class="overflow-hidden">
-                            <h4 class="font-display font-bold text-white text-base truncate">${topTrack.title}</h4>
-                            <p class="text-xs text-zinc-400 truncate mb-1">${topTrack.artist}</p>
-                            <span class="inline-block font-display font-bold text-xs text-accent">${val} прослушиваний</span>
-                        </div>
-                    </div>
-                `;
-            }
-
-            refresh() {
-                this.fetchData();
-            }
-
-            getMockData() {
-                const sample = [
-                    { title: "Эсимде", artist: "Мирбек Атабеков", cover: "", views: 4850000, streams: 1650000, searches: 210000 },
-                    { title: "Расстояние", artist: "Ulukmanapo", cover: "", views: 4200000, streams: 1420000, searches: 190000 },
-                    { title: "Таптым", artist: "Jax 02.14", cover: "", views: 3600000, streams: 1210000, searches: 165000 },
-                    { title: "Kelechek", artist: "Bayastan", cover: "", views: 3100000, streams: 1050000, searches: 130000 },
-                    { title: "Айдагы кыз", artist: "Tamga", cover: "", views: 2850000, streams: 920000, searches: 110000 },
-                ];
-                
-                // Generating 100 items dynamically for authentic TOP-100 scale
-                const generateList = (multiplier, keyName) => {
-                    return sample.map((item, i) => ({
-                        title: item.title,
-                        artist: item.artist,
-                        cover: item.cover,
-                        [keyName]: item[keyName]
-                    })).concat(Array.from({length: 95}, (_, idx) => {
-                        const i = idx + 6;
-                        return {
-                            title: `Independent Chart Hit #${i}`,
-                            artist: `KY Artist National #${i}`,
-                            cover: "",
-                            [keyName]: Math.max(2500000 - (i * 24000), 15000)
-                        };
-                    }));
-                };
-
-                return {
-                    youtube: generateList(1, 'views'),
-                    apple_music: generateList(1, 'streams'),
-                    spotify: generateList(1, 'streams'),
-                    shazam: generateList(1, 'searches')
-                };
             }
         }
 
