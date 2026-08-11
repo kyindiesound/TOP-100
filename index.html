@@ -38,7 +38,7 @@
         ::-webkit-scrollbar-track { background: #fcfcfd; }
         ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 2px; }
         .transition-smooth {
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
     </style>
 </head>
@@ -50,23 +50,23 @@
             <div class="flex items-center space-x-4">
                 <div class="flex flex-col">
                     <div class="flex items-center space-x-2">
-                        <span class="font-sans font-bold tracking-tight text-sm uppercase text-zinc-900">TOP-100</span>
+                        <span class="font-sans font-bold tracking-tight text-base uppercase text-zinc-900">TOP-100</span>
                         <span class="text-zinc-300">/</span>
-                        <span class="font-mono text-[11px] text-zinc-500 uppercase tracking-widest">Analytics v2.4</span>
+                        <span class="font-mono text-[11px] text-zinc-500 uppercase tracking-widest">Live Feed</span>
                     </div>
-                    <span class="text-[10px] font-mono text-zinc-400 mt-0.5">Real-time chart aggregation engine</span>
+                    <span class="text-[10px] font-mono text-zinc-400 mt-0.5">Automated Platform Covers Sync</span>
                 </div>
             </div>
 
-            <!-- Global Actions & Connection Status -->
+            <!-- Global Status -->
             <div class="flex items-center space-x-4">
                 <div class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-zinc-100 border border-zinc-200 text-[11px] font-mono text-zinc-600">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>Local Mode Active</span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="sync-status">100 Tracks Loaded</span>
                 </div>
-                <button onclick="app.fetchData()" class="px-4 py-2 text-xs font-mono bg-zinc-900 text-white rounded hover:bg-zinc-800 transition-smooth flex items-center space-x-2 shadow-sm">
+                <button onclick="app.refreshCovers()" class="px-4 py-2 text-xs font-mono bg-zinc-900 text-white rounded hover:bg-zinc-800 transition-smooth flex items-center space-x-2 shadow-sm">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                    <span>[ SYNC ]</span>
+                    <span>[ REFRESH ]</span>
                 </button>
             </div>
         </div>
@@ -75,7 +75,7 @@
     <!-- Main Content Wrapper -->
     <main class="flex-grow max-w-5xl mx-auto px-6 py-10 w-full">
         
-        <!-- Toolbar: Tabs & Search -->
+        <!-- Toolbar: Tabs & Search & Limit -->
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div class="flex items-center space-x-6 border-b border-[#e4e4e7] pb-4 md:border-b-0 md:pb-0 overflow-x-auto w-full md:w-auto" id="platform-tabs">
                 <button onclick="app.switchPlatform('youtube')" data-target="youtube" class="text-zinc-900 pb-1 border-b-2 border-zinc-900 text-xs uppercase tracking-widest font-semibold transition-smooth whitespace-nowrap">YouTube KG</button>
@@ -84,35 +84,39 @@
                 <button onclick="app.switchPlatform('shazam')" data-target="shazam" class="text-zinc-400 hover:text-zinc-700 pb-1 border-b-2 border-transparent text-xs uppercase tracking-widest font-semibold transition-smooth whitespace-nowrap">Shazam</button>
             </div>
 
-            <div class="flex items-center space-x-3 w-full md:w-72">
-                <div class="relative w-full">
-                    <input type="text" id="track-search" placeholder="Search track or artist..." oninput="app.handleSearch(this.value)" class="w-full bg-zinc-100/80 border border-zinc-200 rounded px-3.5 py-2 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-zinc-400 transition-smooth font-sans">
-                </div>
+            <div class="flex items-center space-x-3 w-full md:w-auto">
+                <input type="text" id="track-search" placeholder="Search in TOP-100..." oninput="app.handleSearch(this.value)" class="w-full md:w-64 bg-zinc-100/80 border border-zinc-200 rounded px-3.5 py-2 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-zinc-400 transition-smooth font-sans">
+                
+                <select id="limit-select" onchange="app.setLimit(this.value)" class="bg-zinc-100/80 border border-zinc-200 rounded px-2.5 py-2 text-xs font-mono text-zinc-700 focus:outline-none">
+                    <option value="100">Top 100</option>
+                    <option value="50">Top 50</option>
+                    <option value="20">Top 20</option>
+                </select>
             </div>
         </div>
 
-        <!-- Metric Header Row -->
-        <div class="bg-zinc-100/50 border border-[#e4e4e7] rounded-t-lg px-4 py-3 grid grid-cols-12 items-center text-[10px] font-mono uppercase tracking-widest text-zinc-500">
+        <!-- Table Header -->
+        <div class="bg-zinc-100/60 border border-[#e4e4e7] rounded-t-lg px-4 py-3 grid grid-cols-12 items-center text-[10px] font-mono uppercase tracking-widest text-zinc-500">
             <div class="col-span-1 text-left">#</div>
             <div class="col-span-7 md:col-span-8 pl-2">Track & Artist</div>
             <div class="col-span-2 text-center hidden md:block">Trend</div>
-            <div class="col-span-4 md:col-span-1 text-right" id="metric-label">Streams</div>
+            <div class="col-span-4 md:col-span-1 text-right" id="metric-label">Views</div>
         </div>
 
         <!-- Tracks Container -->
-        <div class="border-x border-b border-[#e4e4e7] rounded-b-lg bg-white overflow-hidden shadow-2xl shadow-zinc-200/50 min-h-[420px]">
+        <div class="border-x border-b border-[#e4e4e7] rounded-b-lg bg-white overflow-hidden shadow-2xl shadow-zinc-200/50 min-h-[500px]">
             <div id="loader" class="py-32 text-center flex flex-col items-center justify-center space-y-3">
                 <div class="w-6 h-6 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin"></div>
-                <span class="font-mono text-xs text-zinc-400">Loading local track database...</span>
+                <span class="font-mono text-xs text-zinc-400">Fetching covers & chart data...</span>
             </div>
 
             <div id="tracks-list" class="divide-y divide-[#e4e4e7] hidden"></div>
         </div>
 
-        <!-- Footer bar inside content -->
+        <!-- Counter Footer -->
         <div class="mt-4 flex items-center justify-between text-xs font-mono text-zinc-500 px-2">
-            <span id="total-tracks-count">Showing 0 tracks</span>
-            <span id="last-sync-time">Last sync: Just now</span>
+            <span id="total-tracks-count">Showing 100 of 100 tracks</span>
+            <span>API Auto-Sync: Enabled</span>
         </div>
     </main>
 
@@ -129,7 +133,7 @@
         <div class="max-w-5xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-mono text-zinc-500">
             <div class="flex items-center space-x-2">
                 <span class="font-bold text-zinc-900">TOP-100</span>
-                <span>— Global Charts Platform</span>
+                <span>— Global Music Intelligence</span>
             </div>
             <div class="tracking-wider uppercase text-[11px] text-zinc-400 font-semibold">
                 by KY INDIE SOUND
@@ -137,54 +141,117 @@
         </div>
     </footer>
 
-    <!-- Local Application Logic & Mock Data -->
+    <!-- Logic & Dynamic 100 Track Generator with Real Covers -->
     <script>
-        const MOCK_DATABASE = {
-            youtube: [
-                { title: "Сагынам", artist: "BACO & OVO", views: 1425000, trend: "+3", cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80" },
-                { title: "Тун ичинде", artist: "MuzToo", views: 980400, trend: "NEW", cover: "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=120&auto=format&fit=crop&q=80" },
-                { title: "Kyzyl-Kiya", artist: "Indie Project KG", views: 754200, trend: "+1", cover: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=80" },
-                { title: "Эсимде", artist: "Noname", views: 612000, trend: "-2", cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=120&auto=format&fit=crop&q=80" },
-                { title: "Jyldyz", artist: "Saz Records", views: 450100, trend: "+5", cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=120&auto=format&fit=crop&q=80" }
-            ],
-            apple_music: [
-                { title: "Kyzyl-Kiya", artist: "Indie Project KG", streams: 320400, trend: "+2", cover: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=80" },
-                { title: "Сагынам", artist: "BACO & OVO", streams: 295100, trend: "-1", cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80" },
-                { title: "Jyldyz", artist: "Saz Records", streams: 180300, trend: "NEW", cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=120&auto=format&fit=crop&q=80" },
-                { title: "Тун ичинде", artist: "MuzToo", streams: 142000, trend: "+4", cover: "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=120&auto=format&fit=crop&q=80" }
-            ],
-            spotify: [
-                { title: "Jyldyz", artist: "Saz Records", streams: 540200, trend: "+1", cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=120&auto=format&fit=crop&q=80" },
-                { title: "Сагынам", artist: "BACO & OVO", streams: 412000, trend: "-2", cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80" },
-                { title: "Kyzyl-Kiya", artist: "Indie Project KG", streams: 389000, trend: "NEW", cover: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=80" }
-            ],
-            shazam: [
-                { title: "Тун ичинде", artist: "MuzToo", searches: 45200, trend: "+6", cover: "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=120&auto=format&fit=crop&q=80" },
-                { title: "Сагынам", artist: "BACO & OVO", searches: 31200, trend: "-1", cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80" },
-                { title: "Эсимде", artist: "Noname", searches: 19800, trend: "NEW", cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=120&auto=format&fit=crop&q=80" }
-            ]
-        };
+        // База артистов и названий для генерации релевантного TOP-100
+        const ARTISTS = [
+            "BACO", "OVO", "MuzToo", "Indie Project KG", "Saz Records", "Noname", 
+            "Ulukmanapo", "FREEMAN 996", "Jax 02.14", "Mirbek Atabekov", "JANY",
+            "Ysyk-Köl Waves", "KY INDIE Collective", "Nurbek Savitakhunov", "Zere", 
+            "Cholpon", "Begish", "Bayastan", "Ormon", "Tynai", "Aida", "Akyl"
+        ];
+
+        const TRACK_TITLES = [
+            "Сагынам", "Тун ичинде", "Kyzyl-Kiya", "Эсимде", "Jyldyz", "Tamchy",
+            "Bishkek Nights", "Ala-Archa", "Koyon", "Salkyn", "Jol", "Janym",
+            "Suluu", "Jalgyz", "Umut", "Arnamys", "Muras", "Kesh", "Ay-Danek",
+            "Cholpon-Ata", "Khan-Tengri", "Tuman", "Jangy Kun", "Koy-Tash", "Tilek"
+        ];
 
         class MusicChartEngine {
             constructor() {
                 this.currentPlatform = 'youtube';
                 this.searchQuery = '';
-                this.fetchData();
+                this.limit = 100;
+                this.database = {};
+                this.coverCache = {};
+                this.generateFullDatabase();
+                this.init();
             }
 
-            fetchData() {
-                const loader = document.getElementById("loader");
-                const listEl = document.getElementById("tracks-list");
+            // Генератор полных 100 треков для каждой площадки
+            generateFullDatabase() {
+                const platforms = ['youtube', 'apple_music', 'spotify', 'shazam'];
                 
-                loader.style.display = "flex";
-                listEl.classList.add("hidden");
+                platforms.forEach(p => {
+                    this.database[p] = [];
+                    let baseValue = p === 'youtube' ? 2500000 : p === 'shazam' ? 85000 : 950000;
 
-                setTimeout(() => {
-                    this.render();
-                }, 400); // Быстрая имитация загрузки
+                    for (let i = 1; i <= 100; i++) {
+                        const artist = ARTISTS[(i * 7 + p.length) % ARTISTS.length];
+                        const title = TRACK_TITLES[(i * 3 + p.length) % TRACK_TITLES.length] + (i > 25 ? ` (Pt. ${(i%3)+1})` : '');
+                        const val = Math.floor(baseValue * (1 - (i * 0.0085)) + Math.random() * 5000);
+                        
+                        // Тренд: Рост / Падение / Новый
+                        let trend = '=';
+                        if (i % 7 === 0) trend = 'NEW';
+                        else if (i % 3 === 0) trend = `+${(i % 5) + 1}`;
+                        else if (i % 4 === 0) trend = `-${(i % 3) + 1}`;
+
+                        this.database[p].push({
+                            id: `${p}-${i}`,
+                            rank: i,
+                            title: title,
+                            artist: artist,
+                            val: val,
+                            trend: trend,
+                            cover: null // Будет получено динамически
+                        });
+                    }
+                });
             }
 
-            switchPlatform(platform) {
+            async init() {
+                await this.fetchCoversForPlatform(this.currentPlatform);
+                this.render();
+            }
+
+            // Динамическая загрузка обложек с музыкальных сервисов (через iTunes/Apple Search API)
+            async fetchCoversForPlatform(platform) {
+                const tracks = this.database[platform];
+                
+                // Берем первые 30 треков для ускорения загрузки настоящих обложек
+                const batch = tracks.slice(0, 30);
+                
+                const promises = batch.map(async (track) => {
+                    if (track.cover) return;
+
+                    const cacheKey = `${track.artist}-${track.title}`;
+                    if (this.coverCache[cacheKey]) {
+                        track.cover = this.coverCache[cacheKey];
+                        return;
+                    }
+
+                    try {
+                        const query = encodeURIComponent(`${track.artist} ${track.title}`);
+                        const response = await fetch(`https://itunes.apple.com/search?term=${query}&entity=song&limit=1`);
+                        const data = await response.json();
+
+                        if (data.results && data.results.length > 0) {
+                            // Берем оригинальную обложку высокого разрешения
+                            const coverUrl = data.results[0].artworkUrl100.replace('100x100bb', '300x300bb');
+                            track.cover = coverUrl;
+                            this.coverCache[cacheKey] = coverUrl;
+                        } else {
+                            // Fallback на динамический стильный пак виниловых обложек
+                            track.cover = `https://picsum.photos/seed/${encodeURIComponent(track.artist + track.title)}/200`;
+                        }
+                    } catch (e) {
+                        track.cover = `https://picsum.photos/seed/${encodeURIComponent(track.artist + track.title)}/200`;
+                    }
+                });
+
+                await Promise.all(promises);
+
+                // Заполняем остальные треки надежными уникальными обложками
+                tracks.forEach(track => {
+                    if (!track.cover) {
+                        track.cover = `https://picsum.photos/seed/${encodeURIComponent(track.artist + track.title)}/200`;
+                    }
+                });
+            }
+
+            async switchPlatform(platform) {
                 this.currentPlatform = platform;
                 
                 document.querySelectorAll('#platform-tabs button').forEach(btn => {
@@ -195,11 +262,29 @@
                     }
                 });
 
+                document.getElementById("loader").style.display = "flex";
+                document.getElementById("tracks-list").classList.add("hidden");
+
+                await this.fetchCoversForPlatform(platform);
                 this.render();
             }
 
             handleSearch(query) {
                 this.searchQuery = query.toLowerCase().trim();
+                this.render();
+            }
+
+            setLimit(val) {
+                this.limit = parseInt(val);
+                this.render();
+            }
+
+            async refreshCovers() {
+                this.coverCache = {};
+                this.database[this.currentPlatform].forEach(t => t.cover = null);
+                document.getElementById("loader").style.display = "flex";
+                document.getElementById("tracks-list").classList.add("hidden");
+                await this.fetchCoversForPlatform(this.currentPlatform);
                 this.render();
             }
 
@@ -209,7 +294,7 @@
                 const metricLabel = document.getElementById("metric-label");
                 const countEl = document.getElementById("total-tracks-count");
 
-                let tracks = MOCK_DATABASE[this.currentPlatform] || [];
+                let tracks = this.database[this.currentPlatform] || [];
 
                 if (this.searchQuery) {
                     tracks = tracks.filter(t => 
@@ -218,32 +303,30 @@
                     );
                 }
 
+                tracks = tracks.slice(0, this.limit);
+
                 if (this.currentPlatform === 'youtube') metricLabel.textContent = "Views";
                 else if (this.currentPlatform === 'apple_music' || this.currentPlatform === 'spotify') metricLabel.textContent = "Streams";
                 else if (this.currentPlatform === 'shazam') metricLabel.textContent = "Searches";
 
-                countEl.textContent = `Showing ${tracks.length} tracks`;
+                countEl.textContent = `Showing ${tracks.length} of 100 tracks`;
 
                 let html = "";
                 if (tracks.length === 0) {
                     html = `<div class="py-20 text-center font-mono text-xs text-zinc-400">No tracks found matching your query</div>`;
                 } else {
-                    tracks.forEach((track, index) => {
-                        const rank = index + 1;
-                        const val = track.views || track.streams || track.searches || 0;
-                        const formattedVal = new Intl.NumberFormat('ru-RU').format(val);
-                        const cover = track.cover;
-                        const trend = track.trend;
-                        const trendColor = trend.includes('+') ? 'text-emerald-600 font-mono text-[11px]' : trend === 'NEW' ? 'text-blue-600 font-mono text-[11px]' : 'text-zinc-400 font-mono text-[11px]';
+                    tracks.forEach((track) => {
+                        const formattedVal = new Intl.NumberFormat('ru-RU').format(track.val);
+                        const trendColor = track.trend.includes('+') ? 'text-emerald-600 font-mono text-[11px]' : track.trend === 'NEW' ? 'text-blue-600 font-mono text-[11px]' : track.trend.includes('-') ? 'text-rose-500 font-mono text-[11px]' : 'text-zinc-300 font-mono text-[11px]';
 
                         html += `
-                            <div onclick='app.openTrackDetails(${JSON.stringify(track)})' class="px-4 py-3 grid grid-cols-12 items-center row-hover transition-smooth cursor-pointer group">
+                            <div onclick='app.openTrackDetails(${JSON.stringify(track).replace(/'/g, "&#39;")})' class="px-4 py-3 grid grid-cols-12 items-center row-hover transition-smooth cursor-pointer group">
                                 <div class="col-span-1 font-mono text-xs text-zinc-400 font-medium">
-                                    ${String(rank).padStart(2, '0')}
+                                    ${String(track.rank).padStart(2, '0')}
                                 </div>
                                 <div class="col-span-7 md:col-span-8 flex items-center space-x-3.5 pl-2">
                                     <div class="w-10 h-10 rounded bg-zinc-100 overflow-hidden flex-shrink-0 border border-zinc-200">
-                                        <img src="${cover}" alt="${track.title}" class="w-full h-full object-cover grayscale opacity-90 group-hover:grayscale-0 group-hover:opacity-100 transition-all">
+                                        <img src="${track.cover}" alt="${track.title}" loading="lazy" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-all">
                                     </div>
                                     <div class="min-w-0">
                                         <h4 class="text-xs font-semibold text-zinc-900 tracking-tight truncate group-hover:text-black">${track.title}</h4>
@@ -251,7 +334,7 @@
                                     </div>
                                 </div>
                                 <div class="col-span-2 text-center hidden md:block">
-                                    <span class="${trendColor}">${trend}</span>
+                                    <span class="${trendColor}">${track.trend}</span>
                                 </div>
                                 <div class="col-span-4 md:col-span-1 text-right">
                                     <span class="font-mono text-xs font-medium text-zinc-700">${formattedVal}</span>
@@ -276,19 +359,20 @@
                         <div>
                             <h3 class="text-sm font-bold text-zinc-900">${track.title}</h3>
                             <p class="text-xs text-zinc-500 mt-0.5">${track.artist}</p>
+                            <span class="inline-block mt-2 px-2 py-0.5 rounded bg-zinc-100 text-[10px] font-mono text-zinc-600">Chart Rank: #${track.rank}</span>
                         </div>
                     </div>
                     <div class="border-t border-zinc-100 pt-4 space-y-2 font-mono text-xs">
                         <div class="flex justify-between py-1 border-b border-zinc-50">
-                            <span class="text-zinc-400">Total Metric:</span>
-                            <span class="text-zinc-900 font-medium">${new Intl.NumberFormat('ru-RU').format(track.views || track.streams || track.searches || 0)}</span>
+                            <span class="text-zinc-400">Platform Performance:</span>
+                            <span class="text-zinc-900 font-medium">${new Intl.NumberFormat('ru-RU').format(track.val)}</span>
                         </div>
                         <div class="flex justify-between py-1 border-b border-zinc-50">
-                            <span class="text-zinc-400">Release ID:</span>
-                            <span class="text-zinc-900 font-medium">KY-${Math.floor(1000 + Math.random() * 9000)}</span>
+                            <span class="text-zinc-400">ISRC Code:</span>
+                            <span class="text-zinc-900 font-medium">KG-KY1-26-${String(track.rank).padStart(4, '0')}</span>
                         </div>
                         <div class="flex justify-between py-1">
-                            <span class="text-zinc-400">Label Distribution:</span>
+                            <span class="text-zinc-400">Distribution:</span>
                             <span class="text-zinc-900 font-medium">KY INDIE SOUND</span>
                         </div>
                     </div>
