@@ -124,7 +124,7 @@ def recalculate_chart(db: Session = Depends(get_db)):
 
 @app.get("/api/v1/chart/analytics")
 def get_analytics_chart(db: Session = Depends(get_db)):
-    """Получение ТОП-100 с мгновенной отдачей из кэша."""
+    """Получение ТОП-100 с названиями полей, совпадающими с фронтендом."""
     now = time.time()
     
     # Отдаем кэш, если он не устарел
@@ -136,11 +136,15 @@ def get_analytics_chart(db: Session = Depends(get_db)):
     result = []
     for entry in entries:
         result.append({
-            "position": entry.position,
+            "rank": entry.position,
             "title": entry.title,
             "artist": entry.artist,
             "cover_url": entry.cover_url,
-            "total_score": entry.total_score,
+            "ky_score": entry.total_score,
+            "peak": entry.position,
+            "weeks_on_chart": 1,
+            "change_type": "NEW",
+            "change_value": 0,
             "breakdown": {
                 "apple_streams": entry.apple_streams,
                 "spotify_streams": entry.spotify_streams,
