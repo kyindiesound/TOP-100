@@ -67,12 +67,6 @@ def run_full_analysis_pipeline(db: Session):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    db = SessionLocal()
-    try:
-        if db.query(WeeklyChart).count() == 0:
-            run_full_analysis_pipeline(db)
-    finally:
-        db.close()
     yield
 
 app = FastAPI(
@@ -96,6 +90,15 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# Эндпоинт для корневого URL, предотвращающий 404 и отключение Render
+@app.get("/")
+def read_root():
+    return {
+        "status": "online",
+        "service": "KY TOP 100 Analytics API",
+        "docs": "/docs"
+    }
 
 @app.get("/api/v1/chart/analytics")
 def get_analytics_chart(db: Session = Depends(get_db)):
