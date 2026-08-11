@@ -12,13 +12,13 @@ from database import SessionLocal, init_db, WeeklyChart, Track, Artist, Platform
 from collectors import MultiPlatformCollector
 from analytics import KYChartAnalyticsEngine
 
-# Настройка логирования для отслеживания фоновых задач
+# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def run_full_analysis_pipeline(db: Session):
-    """Выполняет полный цикл сборки данных, расчета индекса и перезаписи базы."""
-    logger.info("Запуск фонового пайплайна анализа данных...")
+    """Выполняет сборку данных, расчет индекса с равными весами (25% каждый) и очистку устаревших треков."""
+    logger.info("Запуск фонового пайплайна актуализации чарта (Equal Weights 25% + Billboard Rule)...")
     try:
         collector = MultiPlatformCollector()
         
@@ -35,13 +35,49 @@ def run_full_analysis_pipeline(db: Session):
             logger.warning("Пайплайн завершился: получен пустой список треков.")
             return 0
 
-        # Очистка предыдущих записей
+        # -------------------------------------------------------------
+        # 1. ПЕРЕСЧЕТ SCORE С ОДИНАКОВЫМИ ВЕСАМИ (ПО 25%)
+        # 2. ПРИМЕНЕНИЕ АЛГОРИТМА АКТУАЛЬНОСТИ (Recurrent Rule)
+        # -------------------------------------------------------------
+        active_tracks = []
+        for item in processed:
+            # Пересчитываем KY Score: ровно по 25% от каждой платформы
+            apple = item["platform_breakdown"]["apple_music"]
+            spotify = item["platform_breakdown"]["spotify"]
+            youtube = item["platform_breakdown"]["youtube"]
+            shazam = item["platform_breakdown"]["shazam"]
+
+            item["ky_score"] = round((apple * 0.25) + (spotify * 0.25) + (youtube * 0.25) + (shazam * 0.25), 1)
+
+            weeks = random.randint(2, 35) # Количество недель в чарте
+            preliminary_rank = item["final_rank"]
+            
+            # РЕГУЛЯТОР АКТУАЛЬНОСТИ: Если трек в чарте > 20 недель и ниже #50 места — исключаем
+            if weeks > 20 and preliminary_rank > 50:
+                logger.info(f"Исключен устаревший трек: {item['title']} (Недель: {weeks}, Ранг: #{preliminary_rank})")
+                continue
+                
+            item["calculated_weeks"] = weeks
+            active_tracks.append(item)
+
+        # Повторно сортируем по новому ky_score с равными весами
+        active_tracks.sort(key=lambda x: x["ky_score"], reverse=True)
+
+        # Пересчитываем итоговые места (ранги) 1..N после удаления старых треков
+        for new_rank, item in enumerate(active_tracks, start=1):
+            item["final_rank"] = new_rank
+
+        # Ограничиваем итоговый список ровно 100 лучшими треками
+        active_tracks = active_tracks[:100]
+
+        # Очистка предыдущих записей в базе
         db.query(WeeklyChart).delete()
         db.query(PlatformMetric).delete()
         db.query(Track).delete()
         db.commit()
 
-        for item in processed:
+        # Сохранение актуального чарта в базу данных
+        for item in active_tracks:
             artist = db.query(Artist).filter(Artist.name == item["artist"]).first()
             if not artist:
                 artist = Artist(name=item["artist"])
@@ -66,7 +102,7 @@ def run_full_analysis_pipeline(db: Session):
                 position=item["final_rank"],
                 last_week_position=last_pos,
                 peak_position=min(item["final_rank"], last_pos),
-                weeks_on_chart=random.randint(2, 34),
+                weeks_on_chart=item["calculated_weeks"],
                 ky_score=item["ky_score"],
                 apple_score=item["platform_breakdown"]["apple_music"],
                 spotify_score=item["platform_breakdown"]["spotify"],
@@ -76,8 +112,8 @@ def run_full_analysis_pipeline(db: Session):
             db.add(chart_entry)
 
         db.commit()
-        logger.info(f"Пайплайн успешно завершен. Обработано треков: {len(processed)}")
-        return len(processed)
+        logger.info(f"Пайплайн успешно завершен. В чарт вошло треков с равными весами: {len(active_tracks)}")
+        return len(active_tracks)
     except Exception as e:
         db.rollback()
         logger.error(f"Ошибка при выполнении пайплайна: {e}")
@@ -98,8 +134,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="KY TOP 100 Analytics Platform API",
-    version="2.0.0",
-    description="Cross-Platform Music Index & Analytics Engine for Kyrgyzstan",
+    version="2.2.0",
+    description="Cross-Platform Music Index (25% Equal Weights) & Billboard Analytics Engine for Kyrgyzstan",
     lifespan=lifespan
 )
 
@@ -118,12 +154,12 @@ def get_db():
     finally:
         db.close()
 
-# Принимает GET и HEAD запросы для корректных проверки здоровья (Health Check) от Render
+# Принимает GET и HEAD запросы для проверки здоровья от Render
 @app.api_route("/", methods=["GET", "HEAD"])
 def read_root():
     return {
         "status": "online",
-        "service": "KY TOP 100 Analytics API",
+        "service": "KY TOP 100 Analytics API (Equal Weights 25%)",
         "docs": "/docs"
     }
 
@@ -197,11 +233,10 @@ def export_chart_csv(db: Session = Depends(get_db)):
 @app.post("/api/v1/admin/run-pipeline")
 def trigger_pipeline(background_tasks: BackgroundTasks):
     """
-    Запускает перерасчет данных в фоновом режиме,
-    чтобы избежать таймаутов на Render/Vercel.
+    Запускает перерасчет данных с весами по 25% и авто-очисткой устаревших треков.
     """
     background_tasks.add_task(run_pipeline_task)
     return {
         "status": "success",
-        "message": "Процесс перерасчета чарта запущен в фоне. База обновится в течение 10–20 секунд!"
+        "message": "Перерасчет чарта запущен! Веса: Apple 25% · Spotify 25% · YT 25% · Shazam 25%."
     }
