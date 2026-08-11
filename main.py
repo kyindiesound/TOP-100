@@ -118,8 +118,8 @@ def get_db():
     finally:
         db.close()
 
-# Эндпоинт корневого URL для предотвращения 404/отключений на Render
-@app.get("/")
+# Принимает GET и HEAD запросы для корректных проверки здоровья (Health Check) от Render
+@app.api_route("/", methods=["GET", "HEAD"])
 def read_root():
     return {
         "status": "online",
