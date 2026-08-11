@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 sqlalchemy
-httpx
+pydantic
 requests
 beautifulsoup4
+httpx
