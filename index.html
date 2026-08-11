@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KY INDIE SOUND — Charts</title>
+    <title>TOP-100 — Charts</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -44,9 +44,9 @@
     <header class="w-full border-b border-[#e4e4e7] bg-[#fcfcfd]/80 backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <span class="font-sans font-semibold tracking-wider text-xs uppercase text-zinc-500">KY INDIE SOUND</span>
+                <span class="font-sans font-semibold tracking-wider text-xs uppercase text-zinc-900">TOP-100</span>
                 <span class="text-zinc-300">/</span>
-                <span class="font-medium text-sm text-zinc-900">Charts</span>
+                <span class="font-medium text-sm text-zinc-500">Charts</span>
             </div>
             <button onclick="app.fetchData()" class="text-xs font-mono text-zinc-400 hover:text-zinc-900 transition-colors">
                 [ sync ]
@@ -80,10 +80,17 @@
         </div>
     </main>
 
+    <!-- Minimal Footer -->
+    <footer class="w-full border-t border-[#e4e4e7] py-8 mt-auto">
+        <div class="max-w-4xl mx-auto px-6 flex items-center justify-between text-xs font-mono text-zinc-400">
+            <span>TOP-100</span>
+            <span class="tracking-wider uppercase text-[11px]">by KY INDIE SOUND</span>
+        </div>
+    </footer>
+
     <!-- Script -->
     <script>
-        // Вставьте ваш реальный URL бэкенда на Render без слэша на конце
-        const API_BASE_URL = "https://your-backend-service.onrender.com";
+        const API_BASE_URL = "https://ky-indie-sound.onrender.com";
 
         class MusicChartApp {
             constructor() {
