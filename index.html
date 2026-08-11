@@ -20,7 +20,6 @@
                         canvas: '#fcfcfd',
                         surface: '#f3f3f6',
                         line: '#e4e4e7',
-                        subtext: '#71717a'
                     }
                 }
             }
@@ -61,9 +60,9 @@
 
             <!-- Global Actions & Connection Status -->
             <div class="flex items-center space-x-4">
-                <div id="connection-status" class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-zinc-100 border border-zinc-200 text-[11px] font-mono text-zinc-600">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="status-dot"></span>
-                    <span id="status-text">Connected</span>
+                <div class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-zinc-100 border border-zinc-200 text-[11px] font-mono text-zinc-600">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>Local Mode Active</span>
                 </div>
                 <button onclick="app.fetchData()" class="px-4 py-2 text-xs font-mono bg-zinc-900 text-white rounded hover:bg-zinc-800 transition-smooth flex items-center space-x-2 shadow-sm">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -76,9 +75,8 @@
     <!-- Main Content Wrapper -->
     <main class="flex-grow max-w-5xl mx-auto px-6 py-10 w-full">
         
-        <!-- Dashboard Toolbar: Search & Period Selectors -->
+        <!-- Toolbar: Tabs & Search -->
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-            <!-- Platform Tabs -->
             <div class="flex items-center space-x-6 border-b border-[#e4e4e7] pb-4 md:border-b-0 md:pb-0 overflow-x-auto w-full md:w-auto" id="platform-tabs">
                 <button onclick="app.switchPlatform('youtube')" data-target="youtube" class="text-zinc-900 pb-1 border-b-2 border-zinc-900 text-xs uppercase tracking-widest font-semibold transition-smooth whitespace-nowrap">YouTube KG</button>
                 <button onclick="app.switchPlatform('apple_music')" data-target="apple_music" class="text-zinc-400 hover:text-zinc-700 pb-1 border-b-2 border-transparent text-xs uppercase tracking-widest font-semibold transition-smooth whitespace-nowrap">Apple Music</button>
@@ -86,7 +84,6 @@
                 <button onclick="app.switchPlatform('shazam')" data-target="shazam" class="text-zinc-400 hover:text-zinc-700 pb-1 border-b-2 border-transparent text-xs uppercase tracking-widest font-semibold transition-smooth whitespace-nowrap">Shazam</button>
             </div>
 
-            <!-- Search and Filter input -->
             <div class="flex items-center space-x-3 w-full md:w-72">
                 <div class="relative w-full">
                     <input type="text" id="track-search" placeholder="Search track or artist..." oninput="app.handleSearch(this.value)" class="w-full bg-zinc-100/80 border border-zinc-200 rounded px-3.5 py-2 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-zinc-400 transition-smooth font-sans">
@@ -104,33 +101,18 @@
 
         <!-- Tracks Container -->
         <div class="border-x border-b border-[#e4e4e7] rounded-b-lg bg-white overflow-hidden shadow-2xl shadow-zinc-200/50 min-h-[420px]">
-            <!-- Loader State -->
             <div id="loader" class="py-32 text-center flex flex-col items-center justify-center space-y-3">
                 <div class="w-6 h-6 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin"></div>
-                <span class="font-mono text-xs text-zinc-400">Fetching telemetry from backend database...</span>
+                <span class="font-mono text-xs text-zinc-400">Loading local track database...</span>
             </div>
 
-            <!-- Error State Container (Fix for Connection Error) -->
-            <div id="error-container" class="hidden py-24 px-6 text-center flex flex-col items-center justify-center space-y-4">
-                <div class="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center font-mono font-bold text-lg">!</div>
-                <div class="max-w-md">
-                    <h3 class="text-sm font-semibold text-zinc-900 mb-1">Connection error. Check API_BASE_URL.</h3>
-                    <p class="text-xs text-zinc-500 mb-4">Не удалось установить соединение с сервером. Проверьте правильность ссылки в конфигурации `API_BASE_URL` или убедитесь, что ваш сервис на Render активен (бесплатные инстансы засыпают после неактивности).</p>
-                    <div class="flex items-center justify-center space-x-3">
-                        <button onclick="app.fetchData()" class="px-4 py-2 bg-zinc-900 text-white rounded text-xs font-mono hover:bg-zinc-800 transition-smooth">Retry Connection</button>
-                        <button onclick="app.openDiagnosticModal()" class="px-4 py-2 bg-zinc-100 text-zinc-700 border border-zinc-200 rounded text-xs font-mono hover:bg-zinc-200 transition-smooth">Diagnostics</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Dynamic List -->
             <div id="tracks-list" class="divide-y divide-[#e4e4e7] hidden"></div>
         </div>
 
-        <!-- Pagination & Summary Footer bar inside content -->
+        <!-- Footer bar inside content -->
         <div class="mt-4 flex items-center justify-between text-xs font-mono text-zinc-500 px-2">
             <span id="total-tracks-count">Showing 0 tracks</span>
-            <span id="last-sync-time">Last sync: Never</span>
+            <span id="last-sync-time">Last sync: Just now</span>
         </div>
     </main>
 
@@ -138,9 +120,7 @@
     <div id="track-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white border border-zinc-200 rounded-lg max-w-md w-full p-6 shadow-2xl relative">
             <button onclick="app.closeModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 text-xs font-mono">✕</button>
-            <div id="modal-content" class="space-y-4">
-                <!-- Populated via JS -->
-            </div>
+            <div id="modal-content" class="space-y-4"></div>
         </div>
     </div>
 
@@ -157,67 +137,51 @@
         </div>
     </footer>
 
-    <!-- Comprehensive Application Logic Script -->
+    <!-- Local Application Logic & Mock Data -->
     <script>
-        // Ссылка на ваш бэкенд на Render (исправлена ошибка подключения)
-        const API_BASE_URL = "https://ky-indie-sound.onrender.com";
+        const MOCK_DATABASE = {
+            youtube: [
+                { title: "Сагынам", artist: "BACO & OVO", views: 1425000, trend: "+3", cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80" },
+                { title: "Тун ичинде", artist: "MuzToo", views: 980400, trend: "NEW", cover: "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=120&auto=format&fit=crop&q=80" },
+                { title: "Kyzyl-Kiya", artist: "Indie Project KG", views: 754200, trend: "+1", cover: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=80" },
+                { title: "Эсимде", artist: "Noname", views: 612000, trend: "-2", cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=120&auto=format&fit=crop&q=80" },
+                { title: "Jyldyz", artist: "Saz Records", views: 450100, trend: "+5", cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=120&auto=format&fit=crop&q=80" }
+            ],
+            apple_music: [
+                { title: "Kyzyl-Kiya", artist: "Indie Project KG", streams: 320400, trend: "+2", cover: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=80" },
+                { title: "Сагынам", artist: "BACO & OVO", streams: 295100, trend: "-1", cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80" },
+                { title: "Jyldyz", artist: "Saz Records", streams: 180300, trend: "NEW", cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=120&auto=format&fit=crop&q=80" },
+                { title: "Тун ичинде", artist: "MuzToo", streams: 142000, trend: "+4", cover: "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=120&auto=format&fit=crop&q=80" }
+            ],
+            spotify: [
+                { title: "Jyldyz", artist: "Saz Records", streams: 540200, trend: "+1", cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=120&auto=format&fit=crop&q=80" },
+                { title: "Сагынам", artist: "BACO & OVO", streams: 412000, trend: "-2", cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80" },
+                { title: "Kyzyl-Kiya", artist: "Indie Project KG", streams: 389000, trend: "NEW", cover: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=80" }
+            ],
+            shazam: [
+                { title: "Тун ичинде", artist: "MuzToo", searches: 45200, trend: "+6", cover: "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=120&auto=format&fit=crop&q=80" },
+                { title: "Сагынам", artist: "BACO & OVO", searches: 31200, trend: "-1", cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80" },
+                { title: "Эсимде", artist: "Noname", searches: 19800, trend: "NEW", cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=120&auto=format&fit=crop&q=80" }
+            ]
+        };
 
         class MusicChartEngine {
             constructor() {
-                this.rawData = null;
                 this.currentPlatform = 'youtube';
                 this.searchQuery = '';
-                this.lastSync = null;
-                this.init();
-            }
-
-            init() {
                 this.fetchData();
             }
 
-            async fetchData() {
+            fetchData() {
                 const loader = document.getElementById("loader");
-                const errorContainer = document.getElementById("error-container");
                 const listEl = document.getElementById("tracks-list");
-                const statusDot = document.getElementById("status-dot");
-                const statusText = document.getElementById("status-text");
-
+                
                 loader.style.display = "flex";
-                errorContainer.classList.add("hidden");
                 listEl.classList.add("hidden");
 
-                try {
-                    // Контроллер таймаута для долгого пробуждения сервера на Render (до 45 секунд)
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 45000);
-
-                    const res = await fetch(`${API_BASE_URL}/api/v1/charts`, {
-                        signal: controller.signal,
-                        headers: {
-                            'Accept': 'application/json'
-                        }
-                    });
-                    
-                    clearTimeout(timeoutId);
-
-                    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                    
-                    const json = await res.json();
-                    this.rawData = json.data || json;
-                    this.lastSync = new Date().toLocaleTimeString();
-                    
-                    document.getElementById("last-sync-time").textContent = `Last sync: ${this.lastSync}`;
-                    statusDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
-                    statusText.textContent = "Connected";
-
+                setTimeout(() => {
                     this.render();
-                } catch (err) {
-                    console.error("API connection failed:", err);
-                    loader.style.display = "none";
-                    errorContainer.classList.remove("hidden");
-                    statusDot.className = "w-2 h-2 rounded-full bg-red-500";
-                    statusText.textContent = "Connection Error";
-                }
+                }, 400); // Быстрая имитация загрузки
             }
 
             switchPlatform(platform) {
@@ -240,16 +204,13 @@
             }
 
             render() {
-                if (!this.rawData) return;
-
                 const loader = document.getElementById("loader");
                 const listEl = document.getElementById("tracks-list");
                 const metricLabel = document.getElementById("metric-label");
                 const countEl = document.getElementById("total-tracks-count");
 
-                let tracks = this.rawData[this.currentPlatform] || [];
+                let tracks = MOCK_DATABASE[this.currentPlatform] || [];
 
-                // Фильтрация поиска
                 if (this.searchQuery) {
                     tracks = tracks.filter(t => 
                         t.title.toLowerCase().includes(this.searchQuery) || 
@@ -257,7 +218,6 @@
                     );
                 }
 
-                // Установка правильной метрики
                 if (this.currentPlatform === 'youtube') metricLabel.textContent = "Views";
                 else if (this.currentPlatform === 'apple_music' || this.currentPlatform === 'spotify') metricLabel.textContent = "Streams";
                 else if (this.currentPlatform === 'shazam') metricLabel.textContent = "Searches";
@@ -272,14 +232,12 @@
                         const rank = index + 1;
                         const val = track.views || track.streams || track.searches || 0;
                         const formattedVal = new Intl.NumberFormat('ru-RU').format(val);
-                        const cover = track.cover || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80";
-                        
-                        // Симуляция тренда позиций
-                        const trend = track.trend || (index % 3 === 0 ? '+2' : index % 5 === 0 ? '-1' : 'NEW');
+                        const cover = track.cover;
+                        const trend = track.trend;
                         const trendColor = trend.includes('+') ? 'text-emerald-600 font-mono text-[11px]' : trend === 'NEW' ? 'text-blue-600 font-mono text-[11px]' : 'text-zinc-400 font-mono text-[11px]';
 
                         html += `
-                            <div onclick='app.openTrackDetails(${JSON.stringify(track).replace(/'/g, "&#39;")})' class="px-4 py-3 grid grid-cols-12 items-center row-hover transition-smooth cursor-pointer group">
+                            <div onclick='app.openTrackDetails(${JSON.stringify(track)})' class="px-4 py-3 grid grid-cols-12 items-center row-hover transition-smooth cursor-pointer group">
                                 <div class="col-span-1 font-mono text-xs text-zinc-400 font-medium">
                                     ${String(rank).padStart(2, '0')}
                                 </div>
@@ -314,7 +272,7 @@
                 
                 content.innerHTML = `
                     <div class="flex items-center space-x-4 mb-4">
-                        <img src="${track.cover || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop&q=80'}" class="w-16 h-16 rounded object-cover border border-zinc-200">
+                        <img src="${track.cover}" class="w-16 h-16 rounded object-cover border border-zinc-200">
                         <div>
                             <h3 class="text-sm font-bold text-zinc-900">${track.title}</h3>
                             <p class="text-xs text-zinc-500 mt-0.5">${track.artist}</p>
@@ -322,7 +280,7 @@
                     </div>
                     <div class="border-t border-zinc-100 pt-4 space-y-2 font-mono text-xs">
                         <div class="flex justify-between py-1 border-b border-zinc-50">
-                            <span class="text-zinc-400">Platform Metric:</span>
+                            <span class="text-zinc-400">Total Metric:</span>
                             <span class="text-zinc-900 font-medium">${new Intl.NumberFormat('ru-RU').format(track.views || track.streams || track.searches || 0)}</span>
                         </div>
                         <div class="flex justify-between py-1 border-b border-zinc-50">
@@ -340,10 +298,6 @@
 
             closeModal() {
                 document.getElementById("track-modal").classList.add("hidden");
-            }
-
-            openDiagnosticModal() {
-                alert("Диагностика:\n1. URL бэкенда: " + API_BASE_URL + "\n2. Убедитесь, что сервер разбужен на Render (откройте бэкенд в браузере).\n3. Проверьте настройки CORS на сервере FastAPI.");
             }
         }
 
